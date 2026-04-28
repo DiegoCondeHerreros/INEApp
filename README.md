@@ -57,7 +57,3 @@ MVP utilizará:
 - Óscar Corcho
 
 Ontology Engineering Group — ETSI Informáticos, Universidad Politécnica de Madrid.
-
-## Licencia
-
-Código bajo licencia MIT.

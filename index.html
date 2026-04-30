@@ -1274,7 +1274,7 @@ footer.bot .badge {
       <span class="ine-bars"><span></span><span></span><span></span></span>
       <span>INELOD</span>
     </div>
-    <div class="sub">Visor de gentrificación &nbsp; · &nbsp; Madrid · MVP 0.3</div>
+    <div class="sub">Visor de gentrificación &nbsp; · &nbsp; Madrid · 0.3</div>
   </div>
   <nav class="tabs">
     <button data-tab="visor" class="active">Visor</button>
@@ -1388,7 +1388,7 @@ footer.bot .badge {
     <div class="catalog-head">
       <div class="kicker">GET /indicators · v0.3</div>
       <h1>Catálogo de <em>indicadores</em></h1>
-      <p class="lede">Cinco indicadores publicados en el grafo del MVP, modelados como cubos RDF Data Cube y descubribles vía SPARQL. La definición canónica, fórmula y procedencia se almacenan junto a las observaciones para garantizar reproducibilidad.</p>
+      <p class="lede">Cinco indicadores publicados en el grafo, modelados como cubos RDF Data Cube y descubribles vía SPARQL. La definición canónica, fórmula y procedencia se almacenan junto a las observaciones para garantizar reproducibilidad.</p>
     </div>
 
     <div class="cat-grid" id="cat-grid"></div>
@@ -1401,7 +1401,7 @@ footer.bot .badge {
     <div class="catalog-head">
       <div class="kicker">Sobre el proyecto</div>
       <h1>INE<em>·</em>LOD</h1>
-      <p class="lede">Framework semántico para la explotación de la estadística pública española. Versión MVP a cuatro semanas, restringida al municipio de Madrid, sobre las operaciones <strong>Atlas de Distribución de Renta de los Hogares</strong> y <strong>Medición del número de viviendas turísticas</strong> del INE.</p>
+      <p class="lede">Framework semántico para la explotación de la estadística pública española. <strong>Atlas de Distribución de Renta de los Hogares</strong> y <strong>Medición del número de viviendas turísticas</strong> del INE.</p>
     </div>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; border: 1px solid var(--line);">
@@ -1455,7 +1455,7 @@ PREFIX geo:    &lt;http://www.opengis.net/ont/geosparql#&gt;
 SELECT ?distrito ?valor
 WHERE {
   ?obs a qb:Observation ;
-       qb:dataSet         inelod:idx-gentrificacion-mvp ;
+       qb:dataSet         inelod:idx-gentrificacion ;
        inelod:territorio  ?distrito ;
        sdmx:refPeriod     "2023"^^xsd:gYear ;
        inelod:configuracion inelod:preset-general ;

@@ -1,5 +1,5 @@
 ##############################################################################
-# INELOD — Makefile
+# INELODApp — Makefile
 # Orquesta todo el pipeline: normalización de CSV, CONSTRUCTs, validación,
 # cálculo de indicadores, y levanta la API REST.
 #
@@ -12,7 +12,7 @@
 ##############################################################################
 
 .PHONY: all clean help install-deps normalize construct validate-ttl indicators \
-        api api-dev check-deps
+        api api-dev check-deps download-deps
 
 # ── Variables ──────────────────────────────────────────────────────────────────
 SHELL := /bin/bash
@@ -26,40 +26,43 @@ SCRIPTS        := scripts
 CONSTRUCT_DIR  := construct
 
 # Herramientas
-SPARQL_ANYTHING_JAR := $(HOME)/tools/sparql-anything/sparql-anything-v1.1.0-geosparql.jar
+SPARQL_ANYTHING_VERSION := 0.9.0
+SPARQL_ANYTHING_JAR := tools/sparql-anything/sparql-anything-cli-$(SPARQL_ANYTHING_VERSION).jar
+SPARQL_ANYTHING_URL := https://github.com/SPARQL-Anything/sparql.anything/releases/download/v$(SPARQL_ANYTHING_VERSION)/sparql-anything-cli-$(SPARQL_ANYTHING_VERSION).jar
 RIOT            := riot
 
 # Ficheros de entrada (CSV del INE)
-CSV_ADRH_31097  := $(DATA_RAW)/31097.csv
-CSV_ADRH_31105  := $(DATA_RAW)/31105.csv
-CSV_ADRH_37727  := $(DATA_RAW)/37727.csv
-CSV_VUT_T5      := $(DATA_RAW)/5.csv
+CSV_31097  := $(DATA_RAW)/31097.csv
+CSV_31105  := $(DATA_RAW)/31105.csv
+CSV_37727  := $(DATA_RAW)/37727.csv
+CSV_5      := $(DATA_RAW)/5.csv
 
 # Ficheros limpios (UTF-8, sin BOM, sin tildes)
-CSV_ADRH_31097_CLEAN := $(DATA_CLEAN)/31097clean.csv
-CSV_ADRH_31105_CLEAN := $(DATA_CLEAN)/31105-clean.csv
-CSV_ADRH_37727_CLEAN := $(DATA_CLEAN)/37727-clean.csv
-CSV_VUT_T5_CLEAN     := $(DATA_CLEAN)/5-clean.csv
+CSV_31097_CLEAN := $(DATA_CLEAN)/31097-clean.csv
+CSV_31105_CLEAN := $(DATA_CLEAN)/31105-clean.csv
+CSV_37727_CLEAN := $(DATA_CLEAN)/37727-clean.csv
+CSV_5_CLEAN     := $(DATA_CLEAN)/5-clean.csv
 
 # Ficheros TTL generados
-TTL_ADRH_31097  := $(BUILD)/31097.ttl
-TTL_ADRH_31105  := $(BUILD)/31105.ttl
-TTL_ADRH_37727  := $(BUILD)/37727.ttl
-TTL_VUT_01      := $(BUILD)/vut-01-viviendas.ttl
-TTL_VUT_02      := $(BUILD)/vut-02-plazas.ttl
-TTL_VUT_03      := $(BUILD)/vut-03-ratio.ttl
-TTL_VUT_04      := $(BUILD)/vut-04-porcentaje.ttl
-TTL_INDICADORES := $(BUILD)/indicadores-gentrificacion.ttl
+TTL_31097  := $(BUILD)/31097.ttl
+TTL_31105  := $(BUILD)/31105.ttl
+TTL_37727  := $(BUILD)/37727.ttl
+TTL_5_1    := $(BUILD)/5_1.ttl
+TTL_5_2    := $(BUILD)/5_2.ttl
+TTL_5_3    := $(BUILD)/5_3.ttl
+TTL_5_4    := $(BUILD)/5_4.ttl
+TTL_INDICADORES := $(BUILD)/indicadores.ttl
 
 # API
 API_FILE        := api.py
 API_HOST        := 0.0.0.0
 API_PORT        := 8000
 
+
 # ── Targets ────────────────────────────────────────────────────────────────────
 
 help:
-	@echo "INELOD MVP — Makefile"
+	@echo "INELODApp — Makefile"
 	@echo ""
 	@echo "Pipeline de datos:"
 	@echo "  make all                 Ejecuta todo el pipeline de datos"
@@ -75,6 +78,7 @@ help:
 	@echo ""
 	@echo "Mantenimiento:"
 	@echo "  make install-deps        Instala dependencias Python"
+	@echo "  make download-deps       Descarga SPARQL-Anything (requiere curl/wget)"
 	@echo "  make check-deps          Verifica todas las dependencias"
 	@echo "  make clean               Elimina ficheros generados"
 	@echo ""
@@ -85,8 +89,8 @@ all: normalize construct validate-ttl indicators
 	@echo "✓ Pipeline completado exitosamente"
 	@echo ""
 	@echo "Ficheros generados:"
-	@echo "  Cubos ADRH:              $(TTL_ADRH_31097) $(TTL_ADRH_31105) $(TTL_ADRH_37727)"
-	@echo "  Cubo VUT:                $(TTL_VUT_01) $(TTL_VUT_02) $(TTL_VUT_03) $(TTL_VUT_04)"
+	@echo "  Cubos ADRH:              $(TTL_31097) $(TTL_31105) $(TTL_37727)"
+	@echo "  Cubo Viviendas Turísticas: $(TTL_5_1) $(TTL_5_2) $(TTL_5_3) $(TTL_5_4)"
 	@echo "  Indicadores:             $(TTL_INDICADORES)"
 	@echo ""
 	@echo "Próximos pasos:"
@@ -103,7 +107,26 @@ all: normalize construct validate-ttl indicators
 install-deps:
 	@echo "Instalando dependencias Python..."
 	pip install rdflib numpy SPARQLWrapper fastapi uvicorn python-dotenv --break-system-packages
-	@echo "✓ Dependencias instaladas"
+	@echo "✓ Dependencias Python instaladas"
+
+
+# ── 0b. Descarga de SPARQL-Anything ────────────────────────────────────────────
+
+$(SPARQL_ANYTHING_JAR):
+	@echo "Descargando SPARQL-Anything $(SPARQL_ANYTHING_VERSION)..."
+	@mkdir -p tools/sparql-anything
+	@which wget > /dev/null && wget -q -O $@ $(SPARQL_ANYTHING_URL) || \
+	 which curl > /dev/null && curl -s -L -o $@ $(SPARQL_ANYTHING_URL) || \
+	 (echo "❌ No se encontró wget ni curl" && exit 1)
+	@if [ ! -s $@ ]; then \
+		echo "❌ Error descargando SPARQL-Anything"; \
+		rm -f $@; \
+		exit 1; \
+	fi
+	@echo "✓ SPARQL-Anything descargado: $@"
+
+download-deps: $(SPARQL_ANYTHING_JAR)
+	@echo "✓ Todas las dependencias descargadas"
 
 
 # ── 1. Normalización de CSV ────────────────────────────────────────────────────
@@ -111,23 +134,23 @@ install-deps:
 $(DATA_CLEAN):
 	mkdir -p $@
 
-$(CSV_ADRH_31097_CLEAN): $(CSV_ADRH_31097) | $(DATA_CLEAN)
-	@echo "Normalizando ADRH 31097..."
-	python3 $(SCRIPTS)/normalizar_csv.py $(CSV_ADRH_31097) $@ adrh-31097
+$(CSV_31097_CLEAN): $(CSV_31097) | $(DATA_CLEAN)
+	@echo "Normalizando 31097..."
+	python3 $(SCRIPTS)/normalizar_csv.py $(CSV_31097) $@ 31097
 
-$(CSV_ADRH_31105_CLEAN): $(CSV_ADRH_31105) | $(DATA_CLEAN)
-	@echo "Normalizando ADRH 31105..."
-	python3 $(SCRIPTS)/normalizar_csv.py $(CSV_ADRH_31105) $@ adrh-31105
+$(CSV_31105_CLEAN): $(CSV_31105) | $(DATA_CLEAN)
+	@echo "Normalizando 31105..."
+	python3 $(SCRIPTS)/normalizar_csv.py $(CSV_31105) $@ 31105
 
-$(CSV_ADRH_37727_CLEAN): $(CSV_ADRH_37727) | $(DATA_CLEAN)
-	@echo "Normalizando ADRH 37727..."
-	python3 $(SCRIPTS)/normalizar_csv.py $(CSV_ADRH_37727) $@ adrh-37727
+$(CSV_37727_CLEAN): $(CSV_37727) | $(DATA_CLEAN)
+	@echo "Normalizando 37727..."
+	python3 $(SCRIPTS)/normalizar_csv.py $(CSV_37727) $@ 37727
 
-$(CSV_VUT_T5_CLEAN): $(CSV_VUT_T5) | $(DATA_CLEAN)
-	@echo "Normalizando VUT tabla 5..."
-	python3 $(SCRIPTS)/normalizar_csv.py $(CSV_VUT_T5) $@ vut-tabla5
+$(CSV_5_CLEAN): $(CSV_5) | $(DATA_CLEAN)
+	@echo "Normalizando 5 (Viviendas Turísticas)..."
+	python3 $(SCRIPTS)/normalizar_csv.py $(CSV_5) $@ 5
 
-normalize: $(CSV_ADRH_31097_CLEAN) $(CSV_ADRH_31105_CLEAN) $(CSV_ADRH_37727_CLEAN) $(CSV_VUT_T5_CLEAN)
+normalize: $(CSV_31097_CLEAN) $(CSV_31105_CLEAN) $(CSV_37727_CLEAN) $(CSV_5_CLEAN)
 	@echo "✓ CSV normalizados"
 
 
@@ -136,66 +159,66 @@ normalize: $(CSV_ADRH_31097_CLEAN) $(CSV_ADRH_31105_CLEAN) $(CSV_ADRH_37727_CLEA
 $(BUILD):
 	mkdir -p $@
 
-$(TTL_ADRH_31097): $(CSV_ADRH_31097_CLEAN) | $(BUILD)
-	@echo "CONSTRUCT ADRH 31097 (renta)..."
+$(TTL_31097): $(CSV_31097_CLEAN) $(SPARQL_ANYTHING_JAR) | $(BUILD)
+	@echo "CONSTRUCT 31097..."
 	java $(JAVA_OPTS) -jar $(SPARQL_ANYTHING_JAR) \
-		-q $(CONSTRUCT_DIR)/adrh-31097.sparql -f TTL > $@
+		-q $(CONSTRUCT_DIR)/31097.sparql -f TTL > $@
 
-$(TTL_ADRH_31105): $(CSV_ADRH_31105_CLEAN) | $(BUILD)
-	@echo "CONSTRUCT ADRH 31105 (demografía)..."
+$(TTL_31105): $(CSV_31105_CLEAN) $(SPARQL_ANYTHING_JAR) | $(BUILD)
+	@echo "CONSTRUCT 31105..."
 	java $(JAVA_OPTS) -jar $(SPARQL_ANYTHING_JAR) \
-		-q $(CONSTRUCT_DIR)/adrh-31105.sparql -f TTL > $@
+		-q $(CONSTRUCT_DIR)/31105.sparql -f TTL > $@
 
-$(TTL_ADRH_37727): $(CSV_ADRH_37727_CLEAN) | $(BUILD)
-	@echo "CONSTRUCT ADRH 37727 (Gini)..."
+$(TTL_37727): $(CSV_37727_CLEAN) $(SPARQL_ANYTHING_JAR) | $(BUILD)
+	@echo "CONSTRUCT 37727..."
 	java $(JAVA_OPTS) -jar $(SPARQL_ANYTHING_JAR) \
-		-q $(CONSTRUCT_DIR)/adrh-37727.sparql -f TTL > $@
+		-q $(CONSTRUCT_DIR)/37727.sparql -f TTL > $@
 
-$(TTL_VUT_01): $(CSV_VUT_T5_CLEAN) | $(BUILD)
-	@echo "CONSTRUCT VUT viviendas turísticas..."
+$(TTL_5_1): $(CSV_5_CLEAN) $(SPARQL_ANYTHING_JAR) | $(BUILD)
+	@echo "CONSTRUCT 5_1 (Viviendas turísticas)..."
 	java $(JAVA_OPTS) -jar $(SPARQL_ANYTHING_JAR) \
-		-q $(CONSTRUCT_DIR)/vut-01-viviendas.sparql -f TTL > $@
+		-q $(CONSTRUCT_DIR)/5_1.sparql -f TTL > $@
 
-$(TTL_VUT_02): $(CSV_VUT_T5_CLEAN) | $(BUILD)
-	@echo "CONSTRUCT VUT plazas..."
+$(TTL_5_2): $(CSV_5_CLEAN) $(SPARQL_ANYTHING_JAR) | $(BUILD)
+	@echo "CONSTRUCT 5_2 (Plazas)..."
 	java $(JAVA_OPTS) -jar $(SPARQL_ANYTHING_JAR) \
-		-q $(CONSTRUCT_DIR)/vut-02-plazas.sparql -f TTL > $@
+		-q $(CONSTRUCT_DIR)/5_2.sparql -f TTL > $@
 
-$(TTL_VUT_03): $(CSV_VUT_T5_CLEAN) | $(BUILD)
-	@echo "CONSTRUCT VUT ratio plazas/vivienda..."
+$(TTL_5_3): $(CSV_5_CLEAN) $(SPARQL_ANYTHING_JAR) | $(BUILD)
+	@echo "CONSTRUCT 5_3 (Ratio plazas/vivienda)..."
 	java $(JAVA_OPTS) -jar $(SPARQL_ANYTHING_JAR) \
-		-q $(CONSTRUCT_DIR)/vut-03-ratio.sparql -f TTL > $@
+		-q $(CONSTRUCT_DIR)/5_3.sparql -f TTL > $@
 
-$(TTL_VUT_04): $(CSV_VUT_T5_CLEAN) | $(BUILD)
-	@echo "CONSTRUCT VUT porcentaje viviendas turísticas..."
+$(TTL_5_4): $(CSV_5_CLEAN) $(SPARQL_ANYTHING_JAR) | $(BUILD)
+	@echo "CONSTRUCT 5_4 (% viviendas turísticas)..."
 	java $(JAVA_OPTS) -jar $(SPARQL_ANYTHING_JAR) \
-		-q $(CONSTRUCT_DIR)/vut-04-porcentaje.sparql -f TTL > $@
+		-q $(CONSTRUCT_DIR)/5_4.sparql -f TTL > $@
 
-construct: $(TTL_ADRH_31097) $(TTL_ADRH_31105) $(TTL_ADRH_37727) \
-           $(TTL_VUT_01) $(TTL_VUT_02) $(TTL_VUT_03) $(TTL_VUT_04)
+construct: $(TTL_31097) $(TTL_31105) $(TTL_37727) \
+           $(TTL_5_1) $(TTL_5_2) $(TTL_5_3) $(TTL_5_4)
 	@echo "✓ Turtle generados"
 
 
 # ── 3. Validación de Turtle ────────────────────────────────────────────────────
 
-validate-ttl: $(TTL_ADRH_31097) $(TTL_ADRH_31105) $(TTL_ADRH_37727) \
-              $(TTL_VUT_01) $(TTL_VUT_02) $(TTL_VUT_03) $(TTL_VUT_04)
+validate-ttl: $(TTL_31097) $(TTL_31105) $(TTL_37727) \
+              $(TTL_5_1) $(TTL_5_2) $(TTL_5_3) $(TTL_5_4)
 	@echo "Validando Turtle..."
-	@$(RIOT) --validate $(TTL_ADRH_31097) || true
-	@$(RIOT) --validate $(TTL_ADRH_31105) || true
-	@$(RIOT) --validate $(TTL_ADRH_37727) || true
-	@$(RIOT) --validate $(TTL_VUT_01) || true
-	@$(RIOT) --validate $(TTL_VUT_02) || true
-	@$(RIOT) --validate $(TTL_VUT_03) || true
-	@$(RIOT) --validate $(TTL_VUT_04) || true
+	@$(RIOT) --validate $(TTL_31097) || true
+	@$(RIOT) --validate $(TTL_31105) || true
+	@$(RIOT) --validate $(TTL_37727) || true
+	@$(RIOT) --validate $(TTL_5_1) || true
+	@$(RIOT) --validate $(TTL_5_2) || true
+	@$(RIOT) --validate $(TTL_5_3) || true
+	@$(RIOT) --validate $(TTL_5_4) || true
 	@echo "✓ Validación completada"
 
 
 # ── 4. Cálculo de indicadores ──────────────────────────────────────────────────
 
-$(TTL_INDICADORES): $(TTL_ADRH_31097) $(TTL_ADRH_31105) $(TTL_ADRH_37727) \
-                    $(TTL_VUT_01) $(TTL_VUT_02) $(TTL_VUT_03) $(TTL_VUT_04)
-	@echo "Calculando indicadores de gentrificación..."
+$(TTL_INDICADORES): $(TTL_31097) $(TTL_31105) $(TTL_37727) \
+                    $(TTL_5_1) $(TTL_5_2) $(TTL_5_3) $(TTL_5_4)
+	@echo "Calculando indicadores..."
 	python3 $(SCRIPTS)/calcular_indicadores.py
 	@echo "✓ Indicadores calculados: $(TTL_INDICADORES)"
 
@@ -241,10 +264,9 @@ clean-all: clean
 
 # ── 7. Verificación de requisitos ──────────────────────────────────────────────
 
-check-deps:
+check-deps: $(SPARQL_ANYTHING_JAR)
 	@which java > /dev/null || (echo "❌ java no encontrado" && exit 1)
 	@which $(RIOT) > /dev/null || (echo "❌ riot no encontrado (instala Apache Jena)" && exit 1)
-	@test -f $(SPARQL_ANYTHING_JAR) || (echo "❌ SPARQL-Anything JAR no encontrado" && exit 1)
 	@python3 --version 2>&1 | head -1
 	@python3 -c "import fastapi" 2>/dev/null || (echo "❌ fastapi no instalado (make install-deps)" && exit 1)
 	@python3 -c "import SPARQLWrapper" 2>/dev/null || (echo "❌ SPARQLWrapper no instalado (make install-deps)" && exit 1)
@@ -255,8 +277,8 @@ check-deps:
 
 count-triples: construct
 	@echo "Contando líneas por fichero Turtle:"
-	@for f in $(TTL_ADRH_31097) $(TTL_ADRH_31105) $(TTL_ADRH_37727) \
-	          $(TTL_VUT_01) $(TTL_VUT_02) $(TTL_VUT_03) $(TTL_VUT_04); do \
+	@for f in $(TTL_31097) $(TTL_31105) $(TTL_37727) \
+	          $(TTL_5_1) $(TTL_5_2) $(TTL_5_3) $(TTL_5_4); do \
 		if [ -f $$f ]; then \
 			lines=$$(wc -l < $$f); \
 			echo "  $$f: $$lines líneas"; \
@@ -264,8 +286,8 @@ count-triples: construct
 	done
 
 view-sample: construct
-	@echo "Primeras 20 líneas del ADRH 31097:"
-	@head -20 $(TTL_ADRH_31097)
+	@echo "Primeras 20 líneas de 31097.ttl:"
+	@head -20 $(TTL_31097)
 
 
 .DEFAULT_GOAL := help

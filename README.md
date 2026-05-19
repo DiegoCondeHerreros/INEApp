@@ -1,90 +1,46 @@
-# INELOD · Prototipo del visor de gentrificación
+# INELODApp — API REST
 
-Prototipo navegable del visor de gentrificación del proyecto **INELOD — Framework
-semántico para la explotación de la estadística pública española**.
-
-## Qué incluye el prototipo
-
-Tres vistas navegables desde la barra superior:
-
-- **Visor.** Mapa coroplético de los 21 distritos de Madrid con coloreado por
-  percentiles, panel lateral con selector de indicador (5 disponibles),
-  configuración de pesos (3 presets), selector de año (2018–2023) y leyenda
-  dinámica. Al pulsar un distrito se abre la ficha con el desglose en
-  componentes elementales, evolución temporal y procedencia de los datos.
-
-- **Catálogo de indicadores.** Vista que representa el resultado del endpoint
-  `GET /indicators`: metadatos canónicos de los cinco indicadores publicados
-  en el grafo del MVP (definición, unidades, fuentes, fórmula).
-
-- **Acerca de.** Identidad del proyecto, pila tecnológica, vocabularios
-  reutilizados, equipo y aviso del prototipo.
-
-## Datos
-
-Los datos del prototipo son **sintéticos** sobre gentrificación en Madrid. Se han ajustado de modo que Centro (que contiene Lavapiés), Tetuán y Chamberí marquen alto en el indicador compuesto, en línea con los casos documentados en la bibliografía. Las periferias norte y sur quedan en valores bajos.
-
-Las **geometrías de los distritos** son aproximaciones sobre los 21 centroides reales, recortadas por un polígono que aproxima el término municipal. Suficientes para validar el aspecto y flujo de la aplicación pero no aptas para análisis cartográfico riguroso. La implementación final consumirá GeoJSON real del INE y geometrías administrativas del IGN.
-
-Datos disponibles en `data/`:
-
-- `madrid-distritos.geojson` — 21 distritos del municipio de Madrid.
-- `indicators.json` — 4 indicadores elementales y 3 configuraciones del
-  compuesto, para el periodo 2018–2023.
-
-## Pila técnica del prototipo
-
-- HTML + CSS + JavaScript vanilla, sin frameworks ni build step.
-- [Leaflet 1.9.4](https://leafletjs.com/) (embebido inline en `index.html`).
-- Estilo visual alineado con la identidad de los portales del INE.
-
-## Pila objetivo de la implementación final
-
-El prototipo es solo una representación visual. La implementación real del
-MVP utilizará:
-
-- **SPARQL-Anything** (Facade-X) para virtualizar las fuentes del INE.
-- **OpenLink Virtuoso** como triplestore con soporte GeoSPARQL.
-- **RDF Data Cube + SDMX-RDF + SKOS + GeoSPARQL + PROV-O** como vocabularios.
-- **FastAPI** para la API REST.
-- **MapLibre GL JS** para el visor cartográfico (en este prototipo se usa
-  Leaflet por simplicidad de empaquetado).
-
-## Equipo
-
-- Diego Conde Herreros
-- Luis M. Vilches-Blázquez
-- Óscar Corcho
-
-Ontology Engineering Group — ETSI Informáticos, Universidad Politécnica de Madrid.
+API REST para consultar indicadores de gentrificación a nivel de sección censal en Madrid.
 
 ## Instalación y Generación de los recursos de INEApp
 Para la generación de los ttl que se usan para el cálculo de los indicadores de gentrificación se requiere tener descargados los siguientes ficheros en la carpeta  `data/raw`:  [31097.csv](https://www.ine.es/jaxiT3/Tabla.htm?t=31097&L=0), [31105.csv](https://www.ine.es/jaxiT3/Tabla.htm?t=31105&L=0), [37727.csv](https://www.ine.es/jaxiT3/Tabla.htm?t=37727&L=0), y la tabla 5 de la [medición del número de viviendas turísticas en España](https://www.ine.es/experimental/viv_turistica/exp_viv_turistica_tablas.htm).
 
 ### 1. Requisitos previos
+
 - **Java 11+** (para SPARQL-Anything)
 - **Apache Jena** (para `riot`)
 - **Python 3.8+**
+- **Virtuoso remoto** en https://stats.linkeddata.es/sparql con datos ya cargados
 
-### 2. Instalación de dependencias
-````
-make install-deps
-make check-deps
-````
-### 3. Generación de los datos
-````
-# Ejecutar todo de cero
+### 2. Instalar dependencias
+
+```bash
+make install-deps       # Instala dependencias Python
+make download-deps      # Descarga SPARQL-Anything automáticamente
+```
+
+O ejecuta ambos:
+```bash
+make install-deps download-deps
+```
+
+### 3. Generar datos (si no lo has hecho ya)
+
+```bash
+# Coloca los CSV del INE en data/raw/
+# - 31097.csv (ADRH - Renta)
+# - 31105.csv (ADRH - Demografía)
+# - 37727.csv (ADRH - Gini)
+# - 5.csv (Viviendas turísticas)
+
 make all
+```
 
-# O paso a paso:
-make normalize          # Normaliza CSV
-make construct          # Genera Turtle
-make validate-ttl       # Valida Turtle
-make indicators         # Calcula indicadores
+Los ficheros TTL generados estarán en `build/`. Cárgalos manualmente en Virtuoso:
+- `build/31097.ttl`, `build/31105.ttl`, `build/37727.ttl` → grafo `http://lod.ine.es/recurso/cubes/adrh`
+- `build/5_1.ttl`, `build/5_2.ttl`, `build/5_3.ttl`, `build/5_4.ttl` → grafo `http://lod.ine.es/recurso/cubes/viv-tur`
+- `build/indicadores.ttl` → grafo `http://lod.ine.es/recurso/cubes/gentrificacion`
 
-# Ver ayuda
-make help
-````
 ### 4. Levantar la API
 
 **Desarrollo** (con reload automático):
@@ -99,14 +55,14 @@ make api
 
 La API estará disponible en `http://localhost:8000`.
 
-### Documentación interactiva
+## Documentación interactiva
 
 Una vez levantada la API, accede a:
 
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
-### Endpoints principales
+## Endpoints principales
 
 ### Indicadores
 
@@ -303,3 +259,10 @@ async def mi_endpoint(param: str = Query(..., description="Mi parámetro")):
     # Procesar resultados
     return MiRespuesta(...)
 ```
+## Equipo
+
+- Diego Conde Herreros
+- Luis M. Vilches-Blázquez
+- Óscar Corcho
+
+Ontology Engineering Group — ETSI Informáticos, Universidad Politécnica de Madrid.

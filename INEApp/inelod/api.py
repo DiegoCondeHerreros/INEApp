@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-API REST FastAPI para INELODApp. 
+API REST FastAPI para INELODApp.
 Consulta indicadores de gentrificación y datos territoriales desde Virtuoso.
 
 Uso:

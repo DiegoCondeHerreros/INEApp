@@ -7,3 +7,4 @@ node_modules/
 *.log
 INEApp/inelod/.env
 INEApp/data/raw/
+tools/

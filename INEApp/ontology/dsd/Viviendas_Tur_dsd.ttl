@@ -1,0 +1,33 @@
+##############################################################################
+# Cubo Viviendas Turísticas — DSD
+##############################################################################
+
+@prefix ine:            <https://lod.ine.es/def/vocabulary/> .
+@prefix qb:             <http://purl.org/linked-data/cube#> .
+@prefix sdmx-dimension: <http://purl.org/linked-data/sdmx/2009/dimension#> .
+@prefix sdmx-attribute: <http://purl.org/linked-data/sdmx/2009/attribute#> .
+@prefix dcterms:        <http://purl.org/dc/terms/> .
+@prefix rdfs:           <http://www.w3.org/2000/01/rdf-schema#> .
+
+
+<http://lod.ine.es/recurso/cubes/viv-tur> a qb:DataSet ;
+    rdfs:label "Medición del número de viviendas turísticas en España y su capacidad"@es ,
+               "Measurement of tourist dwellings in Spain and their capacity"@en ;
+    qb:structure <http://lod.ine.es/recurso/cubes/viv-tur/dsd> ;
+    dcterms:publisher <http://www.ine.es/> ;
+    dcterms:source <https://www.ine.es/experimental/atlas/experimental_atlas.htm> .
+
+
+<http://lod.ine.es/recurso/cubes/viv-tur/dsd> a qb:DataStructureDefinition ;
+    qb:component
+        # Dimensión territorial — sección censal
+        [ qb:dimension ine:censusSection ;       qb:order 1 ] ,
+        # Dimensión temporal — año y mes (semestral)
+        [ qb:dimension sdmx-dimension:refPeriod ; qb:order 2 ] ,
+        # Medidas
+        [ qb:measure ine:touristDwellings ] ,
+        [ qb:measure ine:numberOfBedplaces ] ,
+        [ qb:measure ine:bedplacesPerTouristDwelling ] ,
+        [ qb:measure ine:touristDwellingsRatio ] ,
+        # Atributo
+        [ qb:attribute sdmx-attribute:unitMeasure ; qb:componentRequired true ] .

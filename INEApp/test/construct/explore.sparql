@@ -1,0 +1,7 @@
+PREFIX xyz: <http://sparql.xyz/facade-x/data/>
+SELECT ?p ?v
+WHERE {
+  SERVICE <x-sparql-anything:location=data/test-adrh.csv,csv.headers=true,csv.delimiter=;> {
+    [] ?p ?v .
+  }
+}

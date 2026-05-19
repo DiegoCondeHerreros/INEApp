@@ -1,0 +1,61 @@
+##############################################################################
+# CONSTRUCT 2 — Plazas (ine:numberOfBedplaces)
+##############################################################################
+
+PREFIX xyz:             <http://sparql.xyz/facade-x/data/>
+PREFIX qb:              <http://purl.org/linked-data/cube#>
+PREFIX ine:             <https://lod.ine.es/def/vocabulary/>
+PREFIX sdmx-dimension:  <http://purl.org/linked-data/sdmx/2009/dimension#>
+PREFIX sdmx-attribute:  <http://purl.org/linked-data/sdmx/2009/attribute#>
+PREFIX skos:            <http://www.w3.org/2004/02/skos/core#>
+PREFIX xsd:             <http://www.w3.org/2001/XMLSchema#>
+
+
+CONSTRUCT {
+  ?secCensal a ine:CensusSection , skos:Concept ;
+             skos:notation ?cusec ;
+             skos:inScheme <http://lod.ine.es/kos/secciones-censales/SECCIONES_CENSALES> ;
+             skos:broader ?distrito .
+
+  ?obs a qb:Observation ;
+       qb:dataSet <http://lod.ine.es/recurso/cubes/viv-tur> ;
+       ine:censusSection ?secCensal ;
+       sdmx-dimension:refPeriod ?periodoLit ;
+       sdmx-attribute:unitMeasure "BEDPLACES" ;
+       ine:numberOfBedplaces ?valor .
+}
+WHERE {
+  SERVICE <x-sparql-anything:location=data/raw/5-clean.csv,csv.headers=true,csv.delimiter=;,charset=UTF-8> {
+    [] xyz:CUSEC    ?cusecRaw ;
+       xyz:MUN      ?munRaw ;
+       xyz:nota2    ?nota2Raw ;
+       xyz:plazas   ?plazasRaw ;
+       xyz:PERIODO  ?periodoRaw .
+  }
+
+  BIND (REPLACE(?cusecRaw,  "^\\s+|\\s+$", "") AS ?cusec)
+  BIND (REPLACE(?munRaw,    "^\\s+|\\s+$", "") AS ?mun)
+  BIND (REPLACE(?nota2Raw,  "^\\s+|\\s+$", "") AS ?nota2)
+  BIND (REPLACE(?plazasRaw, "^\\s+|\\s+$", "") AS ?plazasLimpio)
+
+  FILTER (?mun = "28079")
+  FILTER (?nota2 = "")
+
+  BIND (IRI(CONCAT(
+    "http://lod.ine.es/kos/secciones-censales/SECCIONES_CENSALES/", ?cusec))
+    AS ?secCensal)
+  BIND (IRI(CONCAT(
+    "http://lod.ine.es/kos/distritos/DISTRITOS/", SUBSTR(?cusec, 1, 7)))
+    AS ?distrito)
+
+  BIND (REPLACE(?periodoRaw, "M", "-") AS ?periodoStr)
+  BIND (STRDT(?periodoStr, xsd:gYearMonth) AS ?periodoLit)
+
+  BIND (REPLACE(?plazasLimpio, "\\.", "") AS ?sinMiles)
+  BIND (REPLACE(?sinMiles, ",", ".") AS ?plazasNorm)
+  FILTER (REGEX(?plazasNorm, "^-?[0-9]+(\\.[0-9]+)?$"))
+  BIND (STRDT(?plazasNorm, xsd:integer) AS ?valor)
+
+  BIND (IRI(CONCAT(
+    "http://lod.ine.es/recurso/cubes/viv-tur/o", STRUUID())) AS ?obs)
+}

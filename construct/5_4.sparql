@@ -1,0 +1,61 @@
+##############################################################################
+# CONSTRUCT 4 — Porcentaje de viviendas turísticas (ine:touristDwellingsRatio)
+##############################################################################
+
+PREFIX xyz:             <http://sparql.xyz/facade-x/data/>
+PREFIX qb:              <http://purl.org/linked-data/cube#>
+PREFIX ine:             <https://lod.ine.es/def/vocabulary/>
+PREFIX sdmx-dimension:  <http://purl.org/linked-data/sdmx/2009/dimension#>
+PREFIX sdmx-attribute:  <http://purl.org/linked-data/sdmx/2009/attribute#>
+PREFIX skos:            <http://www.w3.org/2004/02/skos/core#>
+PREFIX xsd:             <http://www.w3.org/2001/XMLSchema#>
+
+
+CONSTRUCT {
+  ?secCensal a ine:CensusSection , skos:Concept ;
+             skos:notation ?cusec ;
+             skos:inScheme <http://lod.ine.es/kos/secciones-censales/SECCIONES_CENSALES> ;
+             skos:broader ?distrito .
+
+  ?obs a qb:Observation ;
+       qb:dataSet <http://lod.ine.es/recurso/cubes/viv-tur> ;
+       ine:censusSection ?secCensal ;
+       sdmx-dimension:refPeriod ?periodoLit ;
+       sdmx-attribute:unitMeasure "PCT" ;
+       ine:touristDwellingsRatio ?valor .
+}
+WHERE {
+  SERVICE <x-sparql-anything:location=data/raw/5-clean.csv,csv.headers=true,csv.delimiter=;,charset=UTF-8> {
+    [] xyz:CUSEC                       ?cusecRaw ;
+       xyz:MUN                         ?munRaw ;
+       xyz:nota4                       ?nota4Raw ;
+       xyz:Porcentaje_vivienda_turistica ?pctRaw ;
+       xyz:PERIODO                     ?periodoRaw .
+  }
+
+  BIND (REPLACE(?cusecRaw, "^\\s+|\\s+$", "") AS ?cusec)
+  BIND (REPLACE(?munRaw,   "^\\s+|\\s+$", "") AS ?mun)
+  BIND (REPLACE(?nota4Raw, "^\\s+|\\s+$", "") AS ?nota4)
+  BIND (REPLACE(?pctRaw,   "^\\s+|\\s+$", "") AS ?pctLimpio)
+
+  FILTER (?mun = "28079")
+  FILTER (?nota4 = "")
+
+  BIND (IRI(CONCAT(
+    "http://lod.ine.es/kos/secciones-censales/SECCIONES_CENSALES/", ?cusec))
+    AS ?secCensal)
+  BIND (IRI(CONCAT(
+    "http://lod.ine.es/kos/distritos/DISTRITOS/", SUBSTR(?cusec, 1, 7)))
+    AS ?distrito)
+
+  BIND (REPLACE(?periodoRaw, "M", "-") AS ?periodoStr)
+  BIND (STRDT(?periodoStr, xsd:gYearMonth) AS ?periodoLit)
+
+  BIND (REPLACE(?pctLimpio, "\\.", "") AS ?sinMiles)
+  BIND (REPLACE(?sinMiles, ",", ".") AS ?pctNorm)
+  FILTER (REGEX(?pctNorm, "^-?[0-9]+(\\.[0-9]+)?$"))
+  BIND (STRDT(?pctNorm, xsd:decimal) AS ?valor)
+
+  BIND (IRI(CONCAT(
+    "http://lod.ine.es/recurso/cubes/viv-tur/o", STRUUID())) AS ?obs)
+}

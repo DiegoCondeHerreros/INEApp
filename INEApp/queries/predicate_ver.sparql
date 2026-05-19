@@ -1,6 +1,0 @@
-SELECT DISTINCT ?p
-WHERE {
-  SERVICE <x-sparql-anything:location=data/raw/adrh-31105-madrid.csv,csv.headers=true,csv.delimiter=;,charset=ISO-8859-15> {
-    [] ?p ?v .
-  }
-}

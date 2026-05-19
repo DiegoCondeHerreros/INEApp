@@ -1,7 +1,0 @@
-SELECT (STR(?row) AS ?rowStr)
-WHERE {
-  SERVICE <x-sparql-anything:location=data/raw/31097.csv,csv.headers=true,csv.delimiter=;,charset=UTF-8> {
-    ?row xyz:Municipios ?muniRaw .
-  }
-}
-LIMIT 3

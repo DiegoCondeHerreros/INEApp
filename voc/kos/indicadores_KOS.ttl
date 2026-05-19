@@ -1,0 +1,54 @@
+##############################################################################
+# ConceptScheme de indicadores de gentrificación
+# Destino: grafo de vocabulario del proyecto
+##############################################################################
+
+@prefix ine:   <https://lod.ine.es/def/vocabulary/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dct:   <http://purl.org/dc/terms/> .
+
+
+<http://lod.ine.es/recurso/indicadores/gentrificacion>
+    a skos:ConceptScheme ;
+    skos:prefLabel "Indicadores de gentrificación INELOD"@es ;
+    rdfs:comment "Indicadores elementales y compuesto para el análisis de gentrificación a escala de sección censal. Desarrollados en el marco del proyecto INELOD-MVP."@es .
+
+<http://lod.ine.es/recurso/indicadores/gentrificacion/I-01>
+    a skos:Concept ;
+    skos:inScheme <http://lod.ine.es/recurso/indicadores/gentrificacion> ;
+    skos:notation "I-01" ;
+    skos:prefLabel "Índice compuesto de gentrificación"@es ;
+    rdfs:comment "Combinación lineal ponderada de I-02 a I-05, normalizados por percentiles sobre el conjunto de secciones censales de Madrid. Toma valores entre 0 y 100."@es ;
+    dct:source <http://lod.ine.es/recurso/indicadores/gentrificacion/I-02> ,
+               <http://lod.ine.es/recurso/indicadores/gentrificacion/I-03> ,
+               <http://lod.ine.es/recurso/indicadores/gentrificacion/I-04> ,
+               <http://lod.ine.es/recurso/indicadores/gentrificacion/I-05> .
+
+<http://lod.ine.es/recurso/indicadores/gentrificacion/I-02>
+    a skos:Concept ;
+    skos:inScheme <http://lod.ine.es/recurso/indicadores/gentrificacion> ;
+    skos:notation "I-02" ;
+    skos:prefLabel "Variación de renta media por persona 2020-2023"@es ;
+    rdfs:comment "Variación porcentual de la renta neta media por persona entre 2020 y 2023, normalizada por percentiles. Fuente: ADRH tabla 31097."@es .
+
+<http://lod.ine.es/recurso/indicadores/gentrificacion/I-03>
+    a skos:Concept ;
+    skos:inScheme <http://lod.ine.es/recurso/indicadores/gentrificacion> ;
+    skos:notation "I-03" ;
+    skos:prefLabel "Variación del índice de Gini 2020-2023"@es ;
+    rdfs:comment "Variación porcentual del índice de Gini entre 2020 y 2023, normalizada por percentiles. Fuente: ADRH tabla 37727."@es .
+
+<http://lod.ine.es/recurso/indicadores/gentrificacion/I-04>
+    a skos:Concept ;
+    skos:inScheme <http://lod.ine.es/recurso/indicadores/gentrificacion> ;
+    skos:notation "I-04" ;
+    skos:prefLabel "Porcentaje de viviendas turísticas"@es ;
+    rdfs:comment "Porcentaje de viviendas de uso turístico sobre el parque residencial total de la sección censal, normalizado por percentiles. Fuente: Medición experimental de viviendas turísticas."@es .
+
+<http://lod.ine.es/recurso/indicadores/gentrificacion/I-05>
+    a skos:Concept ;
+    skos:inScheme <http://lod.ine.es/recurso/indicadores/gentrificacion> ;
+    skos:notation "I-05" ;
+    skos:prefLabel "Variación del porcentaje de viviendas turísticas"@es ;
+    rdfs:comment "Variación porcentual del porcentaje de viviendas turísticas entre periodos consecutivos disponibles, normalizada por percentiles. Fuente: Medición experimental de viviendas turísticas."@es .

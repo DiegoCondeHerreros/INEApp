@@ -1,0 +1,47 @@
+##############################################################################
+# Cubo ADRH — DSD definitiva con las 15 medidas
+# (6 renta + 7 demografía + 2 desigualdad)
+# Destino: http://lod.ine.es/recurso/cubes/adrh/
+##############################################################################
+
+@prefix ine:            <https://lod.ine.es/def/vocabulary/> .
+@prefix qb:             <http://purl.org/linked-data/cube#> .
+@prefix sdmx-dimension: <http://purl.org/linked-data/sdmx/2009/dimension#> .
+@prefix sdmx-attribute: <http://purl.org/linked-data/sdmx/2009/attribute#> .
+@prefix dcterms:        <http://purl.org/dc/terms/> .
+@prefix rdfs:           <http://www.w3.org/2000/01/rdf-schema#> .
+
+
+<http://lod.ine.es/recurso/cubes/adrh> a qb:DataSet ;
+    rdfs:label "Atlas de Distribución de Renta de los Hogares (ADRH)"@es ,
+               "Household Income Distribution Atlas"@en ;
+    qb:structure <http://lod.ine.es/recurso/cubes/adrh/dsd> ;
+    dcterms:publisher <http://www.ine.es/> ;
+    dcterms:source <https://www.ine.es/dynt3/inebase/index.htm?padre=7132> .
+
+
+<http://lod.ine.es/recurso/cubes/adrh/dsd> a qb:DataStructureDefinition ;
+    qb:component
+        # --- Dimensiones ---
+        [ qb:dimension sdmx-dimension:refArea ;   qb:order 1 ] ,
+        [ qb:dimension sdmx-dimension:refPeriod ; qb:order 2 ] ,
+        # --- Medidas tabla 31097 (renta) ---
+        [ qb:measure ine:eurosPerInhabitant ] ,
+        [ qb:measure ine:eurosPerHousehold ] ,
+        [ qb:measure ine:meanEurosPerConsumptionUnit ] ,
+        [ qb:measure ine:medianEurosPerConsumptionUnit ] ,
+        [ qb:measure ine:grossEurosPerInhabitant ] ,
+        [ qb:measure ine:grossEurosPerHousehold ] ,
+        # --- Medidas tabla 31105 (demografía) ---
+        [ qb:measure ine:meanAge ] ,
+        [ qb:measure ine:percentageOfYoungPopulation ] ,
+        [ qb:measure ine:percentageOfElderlyPopulation ] ,
+        [ qb:measure ine:meanHouseholdSize ] ,
+        [ qb:measure ine:percentageOfSingleHouseholds ] ,
+        [ qb:measure ine:totalPopulation ] ,
+        [ qb:measure ine:percentageOfSpanishPopulation ] ,
+        # --- Medidas tabla 37727 (desigualdad) ---
+        [ qb:measure ine:giniIndex ] ,
+        [ qb:measure ine:incomePercentileRatioP80P20 ] ,
+        # --- Atributo ---
+        [ qb:attribute sdmx-attribute:unitMeasure ; qb:componentRequired true ] .

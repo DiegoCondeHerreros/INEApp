@@ -17,20 +17,21 @@ from typing import Optional, List
 from SPARQLWrapper import SPARQLWrapper, JSON
 import logging
 
-# ── Configuración ──────────────────────────────────────────────────────────────
+# ── Configuración ──────────────────────────────────────────────────────────
 VIRTUOSO_ENDPOINT = "https://stats.linkeddata.es/sparql"
 
 # Namespaces
 INE = "http://lod.ine.es/def/vocabulary/"
 IND_BASE = "http://lod.ine.es/recurso/indicadores/gentrificacion/"
-KOS_SECCIONES = "http://lod.ine.es/kos/secciones-censales/SECCIONES_CENSALES/"
-KOS_DISTRITOS = "http://lod.ine.es/kos/distritos/DISTRITOS/"
+
+# Grafo unificado con todos los datos
+GRAFO_DATOS = "http://lod.ine.es/recurso/cubes/gentrificacion"
 
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ── FastAPI app ────────────────────────────────────────────────────────────────
+# ── FastAPI app ────────────────────────────────────────────────────────────
 app = FastAPI(
     title="INELODApp API",
     description="API REST para consultar indicadores de gentrificación a nivel de sección censal en Madrid",
@@ -47,7 +48,7 @@ app.add_middleware(
 )
 
 
-# ── Modelos Pydantic ───────────────────────────────────────────────────────────
+# ── Modelos Pydantic ───────────────────────────────────────────────────────
 class Indicador(BaseModel):
     codigo: str
     label: str
@@ -77,7 +78,7 @@ class ComparacionSecciones(BaseModel):
     seccion2: SeccionCensal
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# ── Helpers ────────────────────────────────────────────────────────────────
 def query_virtuoso(query: str) -> List[dict]:
     """Ejecuta una consulta SPARQL contra Virtuoso."""
     try:
@@ -96,7 +97,7 @@ def format_uri(uri: str) -> str:
     return uri.split("/")[-1]
 
 
-# ── Endpoints ──────────────────────────────────────────────────────────────────
+# ── Endpoints ──────────────────────────────────────────────────────────────
 
 @app.get("/", tags=["Raíz"])
 async def root():
@@ -133,14 +134,13 @@ async def indicadores_madrid(
     query = f"""
 PREFIX ine:  <{INE}>
 PREFIX ind:  <{IND_BASE}>
-PREFIX sdmx: <http://purl.org/linked-data/sdmx/2009/dimension#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX qb:   <http://purl.org/linked-data/cube#>
 
 SELECT ?sec_uri ?sec_label ?dist_uri ?dist_label ?ind ?ind_label ?valor
-FROM <http://lod.ine.es/recurso/cubes/gentrificacion>
+FROM <{GRAFO_DATOS}>
 WHERE {{
-  ?obs qb:dataSet <http://lod.ine.es/recurso/cubes/gentrificacion> ;
+  ?obs qb:dataSet <{GRAFO_DATOS}> ;
        ine:censusSection ?sec_uri ;
        ine:indicator ?ind ;
        ine:gentrificationIndex ?valor .
@@ -206,12 +206,10 @@ async def obtener_seccion(cusec: str):
     query = f"""
 PREFIX ine:  <{INE}>
 PREFIX ind:  <{IND_BASE}>
-PREFIX sdmx: <http://purl.org/linked-data/sdmx/2009/dimension#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX qb:   <http://purl.org/linked-data/cube#>
 
 SELECT ?sec_label ?dist_uri ?dist_label ?ind ?ind_label ?valor
-FROM <http://lod.ine.es/recurso/cubes/gentrificacion>
+FROM <{GRAFO_DATOS}>
 WHERE {{
   ?sec_uri skos:notation "{cusec}" ;
            skos:prefLabel ?sec_label ;
@@ -268,12 +266,11 @@ async def obtener_distrito(codigo: str):
 PREFIX ine:  <{INE}>
 PREFIX ind:  <{IND_BASE}>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX qb:   <http://purl.org/linked-data/cube#>
 
 SELECT ?dist_label (AVG(?val_i01) AS ?media_i01) (AVG(?val_i02) AS ?media_i02)
        (AVG(?val_i03) AS ?media_i03) (AVG(?val_i04) AS ?media_i04)
        (COUNT(DISTINCT ?sec_uri) AS ?num_secciones)
-FROM <http://lod.ine.es/recurso/cubes/gentrificacion>
+FROM <{GRAFO_DATOS}>
 WHERE {{
   ?dist_uri skos:notation "{codigo}" ;
             skos:prefLabel ?dist_label .
@@ -298,14 +295,23 @@ GROUP BY ?dist_uri ?dist_label
         raise HTTPException(status_code=404, detail=f"Distrito {codigo} no encontrado")
     
     row = results[0]
+    try:
+        media_i01 = float(row["media_i01"]["value"]) if row.get("media_i01") and row["media_i01"].get("value") else 0
+        media_i02 = float(row["media_i02"]["value"]) if row.get("media_i02") and row["media_i02"].get("value") else 0
+        media_i03 = float(row["media_i03"]["value"]) if row.get("media_i03") and row["media_i03"].get("value") else 0
+        media_i04 = float(row["media_i04"]["value"]) if row.get("media_i04") and row["media_i04"].get("value") else 0
+        num_secciones = int(row["num_secciones"]["value"]) if row.get("num_secciones") and row["num_secciones"].get("value") else 0
+    except (KeyError, TypeError, ValueError) as e:
+        raise HTTPException(status_code=500, detail=f"Error procesando resultado: {str(e)}")
+    
     return DistritoAgreagado(
         codigo=codigo,
         label=row["dist_label"]["value"],
-        media_i01=float(row["media_i01"]["value"]) if row.get("media_i01") else 0,
-        media_i02=float(row["media_i02"]["value"]) if row.get("media_i02") else 0,
-        media_i03=float(row["media_i03"]["value"]) if row.get("media_i03") else 0,
-        media_i04=float(row["media_i04"]["value"]) if row.get("media_i04") else 0,
-        num_secciones=int(row["num_secciones"]["value"])
+        media_i01=media_i01,
+        media_i02=media_i02,
+        media_i03=media_i03,
+        media_i04=media_i04,
+        num_secciones=num_secciones
     )
 
 
@@ -320,10 +326,11 @@ PREFIX ind:  <{IND_BASE}>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX qb:   <http://purl.org/linked-data/cube#>
 
-SELECT ?dist_codigo ?dist_label (AVG(?val_i01) AS ?media_i01)
-       (AVG(?val_i02) AS ?media_i02) (AVG(?val_i03) AS ?media_i03)
-       (AVG(?val_i04) AS ?media_i04) (COUNT(DISTINCT ?sec_uri) AS ?num_secciones)
-FROM <http://lod.ine.es/recurso/cubes/gentrificacion>
+SELECT ?dist_codigo ?dist_label 
+       (AVG(?val_i01) AS ?media_i01) (AVG(?val_i02) AS ?media_i02)
+       (AVG(?val_i03) AS ?media_i03) (AVG(?val_i04) AS ?media_i04)
+       (COUNT(DISTINCT ?sec_uri) AS ?num_secciones)
+FROM <{GRAFO_DATOS}>
 WHERE {{
   ?sec_uri skos:broader ?dist_uri .
   ?dist_uri skos:notation ?dist_codigo ;
@@ -349,14 +356,24 @@ ORDER BY DESC(?media_i01)
     
     distritos = []
     for row in results:
+        try:
+            media_i01 = float(row["media_i01"]["value"]) if row.get("media_i01") and row["media_i01"].get("value") else 0
+            media_i02 = float(row["media_i02"]["value"]) if row.get("media_i02") and row["media_i02"].get("value") else 0
+            media_i03 = float(row["media_i03"]["value"]) if row.get("media_i03") and row["media_i03"].get("value") else 0
+            media_i04 = float(row["media_i04"]["value"]) if row.get("media_i04") and row["media_i04"].get("value") else 0
+            num_secciones = int(row["num_secciones"]["value"]) if row.get("num_secciones") and row["num_secciones"].get("value") else 0
+        except (KeyError, TypeError, ValueError) as e:
+            logger.warning(f"Error procesando fila de distrito: {row}, error: {e}")
+            continue
+        
         distritos.append(DistritoAgreagado(
             codigo=row["dist_codigo"]["value"],
             label=row["dist_label"]["value"],
-            media_i01=float(row["media_i01"]["value"]) if row.get("media_i01") else 0,
-            media_i02=float(row["media_i02"]["value"]) if row.get("media_i02") else 0,
-            media_i03=float(row["media_i03"]["value"]) if row.get("media_i03") else 0,
-            media_i04=float(row["media_i04"]["value"]) if row.get("media_i04") else 0,
-            num_secciones=int(row["num_secciones"]["value"])
+            media_i01=media_i01,
+            media_i02=media_i02,
+            media_i03=media_i03,
+            media_i04=media_i04,
+            num_secciones=num_secciones
         ))
     
     return distritos
@@ -392,14 +409,13 @@ async def estadisticas_generales():
 PREFIX ine:  <{INE}>
 PREFIX ind:  <{IND_BASE}>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX qb:   <http://purl.org/linked-data/cube#>
 
 SELECT (COUNT(DISTINCT ?sec_uri) AS ?num_secciones)
        (COUNT(DISTINCT ?dist_uri) AS ?num_distritos)
        (COUNT(?obs) AS ?num_observaciones)
        (MIN(?valor) AS ?min_i01) (MAX(?valor) AS ?max_i01)
        (AVG(?valor) AS ?media_i01)
-FROM <http://lod.ine.es/recurso/cubes/gentrificacion>
+FROM <{GRAFO_DATOS}>
 WHERE {{
   ?obs ine:censusSection ?sec_uri ;
        ine:indicator ind:I-01 ;
@@ -438,16 +454,6 @@ async def health_check():
         return {"status": "ok", "virtuoso": "connected"}
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Virtuoso no accesible: {str(e)}")
-
-
-# ── Manejo de errores ──────────────────────────────────────────────────────────
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    return {
-        "error": exc.detail,
-        "status_code": exc.status_code
-    }
 
 
 if __name__ == "__main__":

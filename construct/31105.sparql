@@ -2,7 +2,7 @@
 # CONSTRUCT — Tabla 31105 del INE
 # Indicadores demográficos — Madrid (municipio, distritos, secciones)
 #
-# Fichero esperado: data/raw/adrh-31105-madrid.csv
+# Fichero esperado: data/clean/adrh-31105-madrid.csv
 # Codificación:     ISO-8859-15
 # Separador:        ;
 # Decimal:          coma — separador de millares: punto
@@ -37,7 +37,7 @@ CONSTRUCT {
        ?propMedida ?valor .
 }
 WHERE {
-  SERVICE <x-sparql-anything:location=data/raw/31105-clean.csv,csv.headers=true,csv.delimiter=;,charset=UTF-8> {
+  SERVICE <x-sparql-anything:location=data/clean/31105-clean.csv,csv.headers=true,csv.delimiter=;,charset=UTF-8> {
     ?row xyz:Municipios                ?muniRaw ;
          xyz:Distritos                 ?distRaw ;
          xyz:Secciones                 ?secRaw ;

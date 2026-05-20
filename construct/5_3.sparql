@@ -25,7 +25,7 @@ CONSTRUCT {
        ine:bedplacesPerTouristDwelling ?valor .
 }
 WHERE {
-  SERVICE <x-sparql-anything:location=data/raw/5-clean.csv,csv.headers=true,csv.delimiter=;,charset=UTF-8> {
+  SERVICE <x-sparql-anything:location=data/clean/5-clean.csv,csv.headers=true,csv.delimiter=;,charset=UTF-8> {
     [] xyz:CUSEC                          ?cusecRaw ;
        xyz:MUN                            ?munRaw ;
        xyz:nota3                          ?nota3Raw ;

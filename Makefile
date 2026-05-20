@@ -11,7 +11,7 @@
 #   make help             # Muestra esta ayuda
 ##############################################################################
 
-.PHONY: all clean help install-deps normalize construct validate-ttl indicators \
+.PHONY: all clean help install-deps normalize construct indicators \
         api api-dev check-deps download-deps
 
 # ── Variables ──────────────────────────────────────────────────────────────────
@@ -26,10 +26,9 @@ SCRIPTS        := scripts
 CONSTRUCT_DIR  := construct
 
 # Herramientas
-SPARQL_ANYTHING_VERSION := 0.9.0
-SPARQL_ANYTHING_JAR := tools/sparql-anything/sparql-anything-cli-$(SPARQL_ANYTHING_VERSION).jar
-SPARQL_ANYTHING_URL := https://github.com/SPARQL-Anything/sparql.anything/releases/download/v$(SPARQL_ANYTHING_VERSION)/sparql-anything-cli-$(SPARQL_ANYTHING_VERSION).jar
-RIOT            := riot
+SPARQL_ANYTHING_VERSION := 1.1.0
+SPARQL_ANYTHING_JAR := tools/sparql-anything/sparql-anything-v$(SPARQL_ANYTHING_VERSION).jar
+SPARQL_ANYTHING_URL := https://github.com/SPARQL-Anything/sparql.anything/releases/download/v$(SPARQL_ANYTHING_VERSION)/sparql-anything-v$(SPARQL_ANYTHING_VERSION).jar
 
 # Ficheros de entrada (CSV del INE)
 CSV_31097  := $(DATA_RAW)/31097.csv
@@ -68,7 +67,6 @@ help:
 	@echo "  make all                 Ejecuta todo el pipeline de datos"
 	@echo "  make normalize           Normaliza CSV (UTF-8, sin tildes)"
 	@echo "  make construct           Genera Turtle de los cubos brutos"
-	@echo "  make validate-ttl        Valida Turtle con riot"
 	@echo "  make indicators          Calcula indicadores"
 	@echo ""
 	@echo "API REST:"
@@ -84,7 +82,7 @@ help:
 	@echo ""
 
 
-all: normalize construct validate-ttl indicators
+all: normalize construct indicators
 	@echo ""
 	@echo "✓ Pipeline completado exitosamente"
 	@echo ""
@@ -199,21 +197,6 @@ construct: $(TTL_31097) $(TTL_31105) $(TTL_37727) \
 	@echo "✓ Turtle generados"
 
 
-# ── 3. Validación de Turtle ────────────────────────────────────────────────────
-
-validate-ttl: $(TTL_31097) $(TTL_31105) $(TTL_37727) \
-              $(TTL_5_1) $(TTL_5_2) $(TTL_5_3) $(TTL_5_4)
-	@echo "Validando Turtle..."
-	@$(RIOT) --validate $(TTL_31097) || true
-	@$(RIOT) --validate $(TTL_31105) || true
-	@$(RIOT) --validate $(TTL_37727) || true
-	@$(RIOT) --validate $(TTL_5_1) || true
-	@$(RIOT) --validate $(TTL_5_2) || true
-	@$(RIOT) --validate $(TTL_5_3) || true
-	@$(RIOT) --validate $(TTL_5_4) || true
-	@echo "✓ Validación completada"
-
-
 # ── 4. Cálculo de indicadores ──────────────────────────────────────────────────
 
 $(TTL_INDICADORES): $(TTL_31097) $(TTL_31105) $(TTL_37727) \
@@ -266,7 +249,6 @@ clean-all: clean
 
 check-deps: $(SPARQL_ANYTHING_JAR)
 	@which java > /dev/null || (echo "❌ java no encontrado" && exit 1)
-	@which $(RIOT) > /dev/null || (echo "❌ riot no encontrado (instala Apache Jena)" && exit 1)
 	@python3 --version 2>&1 | head -1
 	@python3 -c "import fastapi" 2>/dev/null || (echo "❌ fastapi no instalado (make install-deps)" && exit 1)
 	@python3 -c "import SPARQLWrapper" 2>/dev/null || (echo "❌ SPARQLWrapper no instalado (make install-deps)" && exit 1)
@@ -274,16 +256,6 @@ check-deps: $(SPARQL_ANYTHING_JAR)
 
 
 # ── 8. Targets de debugging ────────────────────────────────────────────────────
-
-count-triples: construct
-	@echo "Contando líneas por fichero Turtle:"
-	@for f in $(TTL_31097) $(TTL_31105) $(TTL_37727) \
-	          $(TTL_5_1) $(TTL_5_2) $(TTL_5_3) $(TTL_5_4); do \
-		if [ -f $$f ]; then \
-			lines=$$(wc -l < $$f); \
-			echo "  $$f: $$lines líneas"; \
-		fi; \
-	done
 
 view-sample: construct
 	@echo "Primeras 20 líneas de 31097.ttl:"

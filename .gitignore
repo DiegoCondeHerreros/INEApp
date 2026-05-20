@@ -9,3 +9,5 @@ node_modules/
 tools/jena/
 tools/sparql-anything/
 tools/apache-jena-6.1.0.tar.gz
+myvenv/
+__pycache__/

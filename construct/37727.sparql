@@ -2,7 +2,7 @@
 # CONSTRUCT — Tabla 37727 del INE
 # Índice de Gini y Distribución de la renta P80/P20 — Madrid
 #
-# Fichero esperado: data/raw/adrh-37727-madrid.csv
+# Fichero esperado: data/clean/adrh-37727-madrid.csv
 # Codificación:     ISO-8859-15
 # Separador:        ;
 # Decimal:          coma — separador de millares: punto
@@ -40,7 +40,7 @@ CONSTRUCT {
        ?propMedida ?valor .
 }
 WHERE {
-  SERVICE <x-sparql-anything:location=data/raw/37727-clean.csv,csv.headers=true,csv.delimiter=;,charset=UTF-8> {
+  SERVICE <x-sparql-anything:location=data/clean/37727-clean.csv,csv.headers=true,csv.delimiter=;,charset=UTF-8> {
     ?row xyz:Municipios              ?muniRaw ;
          xyz:Distritos               ?distRaw ;
          xyz:Secciones               ?secRaw ;

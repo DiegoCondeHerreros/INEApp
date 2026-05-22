@@ -1,268 +1,316 @@
-# INELODApp — API REST
+# INELODApp
 
-API REST para consultar indicadores de gentrificación a nivel de sección censal en Madrid.
+Visor web y API REST para consultar indicadores de gentrificación a nivel de sección censal en el municipio de Madrid. Período de análisis: **2020–2023**.
 
-## Instalación y Generación de los recursos de INEApp
-Para la generación de los ttl que se usan para el cálculo de los indicadores de gentrificación se requiere tener descargados los siguientes ficheros en la carpeta  `data/raw`:  [31097.csv](https://www.ine.es/jaxiT3/Tabla.htm?t=31097&L=0), [31105.csv](https://www.ine.es/jaxiT3/Tabla.htm?t=31105&L=0), [37727.csv](https://www.ine.es/jaxiT3/Tabla.htm?t=37727&L=0), y la tabla 5 de la [medición del número de viviendas turísticas en España](https://www.ine.es/experimental/viv_turistica/exp_viv_turistica_tablas.htm).
+Proyecto desarrollado en el marco de la colaboración entre el **Ontology Engineering Group (UPM)** y el **Instituto Nacional de Estadística (INE)**, como parte de la iniciativa INE-LinkedStats.
 
-### 1. Requisitos previos
+---
+
+## Arquitectura
+
+```
+Virtuoso (stats.linkeddata.es)
+  ├── http://lod.ine.es/recurso/cubes/gentrificacion   ← Indicadores + SKOS territorial
+  ├── http://lod.ine.es/recurso/cubes/secciones_censales ← Geometrías GeoJSON (INE 2025)
+  └── http://lod.ine.es/kos/                           ← KOS de distritos de Madrid
+        ↓ SPARQL federado
+      api.py  (FastAPI, puerto 8000)
+        ↓ REST
+      ineapp_viewer.html  (Leaflet, puerto 8080)
+```
+
+Los datos están publicados como **Linked Open Data** siguiendo el estándar RDF Data Cube (QB), accesibles mediante SPARQL.
+
+---
+
+## Instalación y generación de recursos
+
+### Requisitos previos
 
 - **Java 11+** (para SPARQL-Anything)
-- **Apache Jena** (para `riot`)
 - **Python 3.8+**
-- **Virtuoso remoto** en https://stats.linkeddata.es/sparql con datos ya cargados
+- Acceso a **Virtuoso remoto** en `https://stats.linkeddata.es/sparql`
 
-### 2. Instalar dependencias
+### 1. Instalar dependencias
 
 ```bash
 make install-deps       # Instala dependencias Python
 make download-deps      # Descarga SPARQL-Anything automáticamente
 ```
 
-O ejecuta ambos:
+O ambos a la vez:
+
 ```bash
 make install-deps download-deps
 ```
 
-### 3. Generar datos (si no lo has hecho ya)
+### 2. Preparar datos de entrada
+
+Descarga los siguientes ficheros del INE y colócalos en `data/raw/`:
+
+| Fichero | Descripción | Enlace |
+|---------|-------------|--------|
+| `31097.csv` | ADRH — Renta neta media por persona | [INE 31097](https://www.ine.es/jaxiT3/Tabla.htm?t=31097&L=0) |
+| `31105.csv` | ADRH — Demografía | [INE 31105](https://www.ine.es/jaxiT3/Tabla.htm?t=31105&L=0) |
+| `37727.csv` | ADRH — Índice de Gini | [INE 37727](https://www.ine.es/jaxiT3/Tabla.htm?t=37727&L=0) |
+| `5.csv` | Viviendas de Uso Turístico (tabla 5) | [INE VUT](https://www.ine.es/experimental/viv_turistica/exp_viv_turistica_tablas.htm) |
+
+### 3. Ejecutar el pipeline
 
 ```bash
-# Coloca los CSV del INE en data/raw/
-# - 31097.csv (ADRH - Renta)
-# - 31105.csv (ADRH - Demografía)
-# - 37727.csv (ADRH - Gini)
-# - 5.csv (Viviendas turísticas)
-
 make all
 ```
 
-Los ficheros TTL generados estarán en `build/`. Cárgalos manualmente en Virtuoso:
-- `build/31097.ttl`, `build/31105.ttl`, `build/37727.ttl` → grafo `http://lod.ine.es/recurso/cubes/adrh`
-- `build/5_1.ttl`, `build/5_2.ttl`, `build/5_3.ttl`, `build/5_4.ttl` → grafo `http://lod.ine.es/recurso/cubes/viv-tur`
-- `build/indicadores.ttl` → grafo `http://lod.ine.es/recurso/cubes/gentrificacion`
+Genera los ficheros TTL en `build/`. Ver los comandos exactos de carga en Virtuoso:
 
-### 4. Levantar la API
-
-**Desarrollo** (con reload automático):
 ```bash
-make api-dev
+make load-instructions
 ```
 
-**Producción**:
+Los tres grafos que deben estar cargados en Virtuoso:
+
+| Grafo | Contenido | Ficheros |
+|-------|-----------|---------|
+| `http://lod.ine.es/recurso/cubes/gentrificacion` | Cubos ADRH + VUT + indicadores calculados + SKOS territorial | `build/*.ttl` |
+| `http://lod.ine.es/recurso/cubes/secciones_censales` | Geometrías de secciones censales (GeoServer INE 2025) | `data/geo/secciones_censales_madrid.geojson` → RDF |
+| `http://lod.ine.es/kos/` | KOS de distritos de Madrid | `Mad_Distritos_KOS` |
+
+> **Nota sobre la cartografía**: Las geometrías se obtienen del GeoServer del INE mediante la API OGC Features, y se transforman a formato ttl mediante el uso de un [morphgeo](https://github.com/isaacnoya/tfm/tree/main/moprhgeo). El fichero `data/geo/municipio_madrid.ttl` contiene las secciones del municipio de Madrid (CMUN=079) con el campo `CUSEC` como identificador.
+
+### 4. Levantar los servicios
+
+**Desarrollo — API + visor simultáneamente (recomendado):**
+
 ```bash
-make api
+make serve
 ```
 
-La API estará disponible en `http://localhost:8000`.
+Esto lanza en paralelo:
+- API REST en `http://localhost:8000`
+- Servidor del visor en `http://localhost:8080/ineapp_viewer.html`
 
-## Documentación interactiva
+Ctrl+C detiene ambos procesos.
 
-Una vez levantada la API, accede a:
+**Por separado:**
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+```bash
+make api-dev    # API con reload automático (desarrollo)
+make api        # API sin reload (producción)
+make viewer     # Solo el servidor del visor HTML
+```
 
-## Endpoints principales
+---
 
-### Indicadores
+## Visor
+
+El fichero `ineapp_viewer.html` es el visor cartográfico. Accede a él en:
+
+```
+http://localhost:8080/ineapp_viewer.html
+```
+
+**Funcionalidades:**
+
+- **Vista Secciones**: mapa coroplético de ~2.100 secciones censales del municipio de Madrid, coloreadas según el índice I-01. Filtros: Todos / Alto (I-01 ≥ 50) / Bajo (I-01 < 50).
+- **Vista Distritos**: agrega los indicadores por distrito, construyendo un MultiPolygon real por distrito. Muestra los 4 indicadores medios al hacer clic.
+- **Panel lateral**: al seleccionar una sección o distrito muestra los 4 indicadores con barras de progreso.
+- **Pestaña Metodología**: descripción del período de análisis, fuentes de datos, fórmulas de cálculo, normalización y consideraciones.
+
+**Escala de color (I-01):**
+
+| Rango | Clasificación |
+|-------|---------------|
+| 0–25 | Bajo |
+| 25–50 | Medio-Bajo |
+| 50–75 | Medio-Alto |
+| 75–88 | Alto |
+| 88–100 | Muy Alto |
+
+---
+
+## API REST
+
+Documentación interactiva disponible en:
+
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+
+### Endpoints
 
 #### `GET /indicadores/madrid`
-Obtiene todos los indicadores de todas las secciones censales de Madrid.
+Indicadores de gentrificación para todas las secciones censales de Madrid.
 
-**Parámetros opcionales:**
-- `indicador` — Filtrar por indicador específico: `I-01`, `I-02`, `I-03`, `I-04`
-- `limit` — Número máximo de resultados (1-2500, default: 100)
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `indicador` | string | Filtrar por indicador: `I-01`, `I-02`, `I-03`, `I-04` |
+| `limit` | int | Máximo de resultados (1–2500, default: 100) |
 
-**Ejemplo:**
 ```bash
 curl "http://localhost:8000/indicadores/madrid?indicador=I-01&limit=20"
 ```
 
+#### `GET /secciones/geo/madrid`
+Geometría GeoJSON + los 4 indicadores por sección censal en una única consulta SPARQL federada. Endpoint principal del visor.
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `limit` | int | Máximo de resultados (1–2500, default: 2500) |
+
+```bash
+curl "http://localhost:8000/secciones/geo/madrid?limit=100"
+```
+
 #### `GET /secciones/{cusec}`
-Obtiene todos los indicadores de una sección censal específica.
+Todos los indicadores de una sección censal específica.
 
-**Parámetro:**
-- `cusec` — Código de 10 dígitos de la sección censal (ej. 2807901001)
-
-**Ejemplo:**
 ```bash
 curl "http://localhost:8000/secciones/2807901001"
 ```
 
-### Distritos
-
 #### `GET /distritos/agregado`
-Obtiene estadísticas agregadas (media de indicadores) para todos los distritos de Madrid, ordenados por I-01 (gentrificación) descendente.
+Media de indicadores para todos los distritos de Madrid, ordenados por I-01 descendente.
 
-**Ejemplo:**
 ```bash
 curl "http://localhost:8000/distritos/agregado"
 ```
 
 #### `GET /distritos/{codigo}`
-Obtiene estadísticas agregadas de un distrito específico.
+Estadísticas agregadas de un distrito específico.
 
-**Parámetro:**
-- `codigo` — Código de 7 dígitos del distrito (ej. 2807901)
-
-**Ejemplo:**
 ```bash
 curl "http://localhost:8000/distritos/2807901"
 ```
 
-### Utilidades
-
 #### `GET /comparar`
 Compara los indicadores de dos secciones censales.
 
-**Parámetros:**
-- `sec1` — CUSEC de la primera sección
-- `sec2` — CUSEC de la segunda sección
+| Parámetro | Descripción |
+|-----------|-------------|
+| `sec1` | CUSEC de la primera sección |
+| `sec2` | CUSEC de la segunda sección |
 
-**Ejemplo:**
 ```bash
 curl "http://localhost:8000/comparar?sec1=2807901001&sec2=2807904001"
 ```
 
 #### `GET /stats`
-Obtiene estadísticas generales del cubo de indicadores: número de secciones, distritos, observaciones, y distribución del índice de gentrificación.
+Estadísticas generales: número de secciones, distritos, observaciones y distribución del I-01.
 
-**Ejemplo:**
 ```bash
 curl "http://localhost:8000/stats"
 ```
 
 #### `GET /health`
-Verifica que la API está operativa y conectada a Virtuoso.
+Verifica conectividad con Virtuoso.
 
-**Ejemplo:**
 ```bash
 curl "http://localhost:8000/health"
 ```
 
-## Ejemplos de uso
-
-### Python
-
-```python
-import requests
-import json
-
-BASE_URL = "http://localhost:8000"
-
-# Obtener indicadores del Centro (distrito 2807901)
-response = requests.get(f"{BASE_URL}/distritos/agregado")
-data = response.json()
-centro = [d for d in data if d["codigo"] == "2807901"][0]
-print(f"Centro: I-01={centro['media_i01']:.2f}")
-
-# Comparar dos secciones
-response = requests.get(
-    f"{BASE_URL}/comparar",
-    params={"sec1": "2807901001", "sec2": "2807904001"}
-)
-data = response.json()
-print(json.dumps(data, indent=2))
-```
-
-### JavaScript / cURL
-
-```bash
-# Obtener todas las secciones con I-01 > 75
-curl "http://localhost:8000/indicadores/madrid?indicador=I-01" \
-  | jq '.[] | select(.indicadores[0].valor > 75)'
-
-# Top 5 distritos por gentrificación
-curl "http://localhost:8000/distritos/agregado" \
-  | jq '.[0:5]'
-```
-
-## Respuesta de ejemplo
+### Respuesta de ejemplo (`/secciones/geo/madrid`)
 
 ```json
 {
   "cusec": "2807901001",
   "label": "Sección 1 del Centro",
-  "distrito_codigo": "2807901",
   "distrito_label": "Centro",
-  "indicadores": [
-    {
-      "codigo": "I-01",
-      "label": "Índice compuesto de gentrificación",
-      "valor": 87.45
-    },
-    {
-      "codigo": "I-02",
-      "label": "Variación renta 2020→2023",
-      "valor": 72.34
-    },
-    {
-      "codigo": "I-03",
-      "label": "Variación Gini 2020→2023",
-      "valor": 65.21
-    },
-    {
-      "codigo": "I-04",
-      "label": "% viviendas turísticas",
-      "valor": 58.90
-    }
-  ]
+  "i01": 87.45,
+  "i02": 72.34,
+  "i03": 65.21,
+  "i04": 58.90,
+  "geometria": "{'type': 'MultiPolygon', 'coordinates': [...]}"
 }
 ```
 
+---
+
 ## Configuración
 
-La API se conecta a Virtuoso en `https://stats.linkeddata.es/sparql`. Para cambiar el endpoint, edita la variable `VIRTUOSO_ENDPOINT` en `api.py`:
+La API se conecta a Virtuoso en `https://stats.linkeddata.es/sparql`. Para cambiar el endpoint, edita `api.py`:
 
 ```python
 VIRTUOSO_ENDPOINT = "https://stats.linkeddata.es/sparql"
-# O si usas otro endpoint:
-VIRTUOSO_ENDPOINT = "http://tu-servidor:8890/sparql"
 ```
+
+Los grafos están definidos como constantes en `api.py`:
+
+```python
+GRAFO_DATOS = "http://lod.ine.es/recurso/cubes/gentrificacion"
+GRAFO_GEO   = "http://lod.ine.es/recurso/cubes/secciones_censales"
+GRAFO_KOS   = "http://lod.ine.es/kos/"
+```
+
+---
+
+## Referencia del Makefile
+
+| Comando | Descripción |
+|---------|-------------|
+| `make all` | Pipeline completo: normalizar → construir TTL → calcular indicadores |
+| `make normalize` | Normaliza CSV (UTF-8, sin BOM) |
+| `make construct` | Genera TTL con SPARQL-Anything |
+| `make indicators` | Calcula indicadores de gentrificación |
+| `make load-instructions` | Muestra comandos isql para cargar datos en Virtuoso |
+| `make serve` | **Lanza API + visor en paralelo** (uso habitual) |
+| `make api-dev` | Solo API con reload automático |
+| `make api` | Solo API en producción |
+| `make viewer` | Solo servidor del visor HTML (puerto 8080) |
+| `make dev` | API + visor con verificación previa de dependencias |
+| `make install-deps` | Instala dependencias Python |
+| `make download-deps` | Descarga SPARQL-Anything |
+| `make check-deps` | Verifica dependencias |
+| `make check-api` | Verifica que la API responde |
+| `make clean` | Elimina `data/clean/` y `build/` |
+
+---
 
 ## Errores comunes
 
-### "Virtuoso no accesible"
-- Verifica que Virtuoso remoto está disponible: `curl https://stats.linkeddata.es/sparql`
-- Comprueba que tienes conexión a internet
-- Verifica que los datos están cargados en los grafos correctos en el servidor remoto
+**`Virtuoso no accesible`**
+- Verifica conectividad: `curl https://stats.linkeddata.es/sparql`
+- Comprueba que los tres grafos están cargados en Virtuoso
 
-### "Sección censal no encontrada"
-- Verifica que el CUSEC tiene 10 dígitos
-- Comprueba que es una sección de Madrid (comienza con `28079`)
+**`Sección censal no encontrada`**
+- El CUSEC debe tener 10 dígitos
+- Las secciones del municipio de Madrid comienzan por `28079`
 
-### "No se encontraron indicadores"
-- Verifica que los indicadores están calculados en `build/indicadores-gentrificacion.ttl`
-- Asegúrate de que el fichero se cargó en el grafo `http://lod.ine.es/recurso/cubes/gentrificacion`
+**`Error al cargar geometrías` en el visor**
+- Asegúrate de lanzar el visor con `make serve` o `make viewer` desde la raíz del proyecto
+- El visor debe servirse por HTTP, no abrirse como fichero local (`file://`)
+- Verifica que la API está corriendo en el puerto 8000
+
+**`Could not import module "api.py"` en uvicorn**
+- Uvicorn espera el nombre del módulo sin extensión. Usa `make api-dev` o `make serve` en lugar de llamar a uvicorn directamente con `api.py`
+
+---
 
 ## Desarrollo
 
-Para añadir nuevos endpoints:
+Para añadir nuevos endpoints a `api.py`:
 
-1. Define el modelo Pydantic (ej. `class MiRespuesta(BaseModel)`)
-2. Escribe la función con decorador `@app.get()` o `@app.post()`
+1. Define el modelo Pydantic
+2. Escribe la función con decorador `@app.get()`
 3. Usa `query_virtuoso()` para ejecutar SPARQL
 4. Retorna el modelo Pydantic
-
-Ejemplo:
 
 ```python
 @app.get("/mi-endpoint", response_model=MiRespuesta, tags=["MiCategoria"])
 async def mi_endpoint(param: str = Query(..., description="Mi parámetro")):
-    """Descripción del endpoint."""
-    query = """
-    PREFIX ...
+    query = f"""
+    PREFIX ine: <{INE}>
     SELECT ...
-    WHERE { ... }
+    WHERE {{ ... }}
     """
     results = query_virtuoso(query)
-    # Procesar resultados
     return MiRespuesta(...)
 ```
+
+---
+
 ## Equipo
 
 - Diego Conde Herreros
 - Luis M. Vilches-Blázquez
 - Óscar Corcho
 
-Ontology Engineering Group — ETSI Informáticos, Universidad Politécnica de Madrid.
+**Ontology Engineering Group** — ETSI Informáticos, Universidad Politécnica de Madrid.

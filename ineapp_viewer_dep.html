@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>INEApp - Visor de Gentrificación Madrid</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0/index.js"></script>
+  <style>
+    * { 
+      box-sizing: border-box; 
+    }
+    
+    html, body { 
+      margin: 0; 
+      padding: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      height: 100%;
+      background: #ffffff;
+    }
+    
+    body {
+      color: #1a1a1a;
+    }
+    
+    .container { 
+      display: flex; 
+      height: 100vh; 
+      width: 100%;
+      gap: 0;
+      overflow: hidden;
+    }
+    
+    .map-section { 
+      flex: 1; 
+      position: relative; 
+      background: #f5f5f5; 
+    }
+    
+    .panel { 
+      width: 340px; 
+      background: #ffffff; 
+      border-left: 1px solid #e0e0e0;
+      overflow-y: auto; 
+      padding: 1.5rem; 
+      display: flex; 
+      flex-direction: column;
+      box-shadow: -1px 0 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    #map { 
+      width: 100%; 
+      height: 100%; 
+    }
+    
+    .panel-header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid #f0f0f0;
+      padding-bottom: 1.5rem;
+    }
+    
+    .panel-title { 
+      font-size: 20px; 
+      font-weight: 600; 
+      margin: 0 0 0.5rem 0; 
+      color: #1a1a1a; 
+      letter-spacing: -0.3px;
+    }
+    
+    .panel-subtitle { 
+      font-size: 13px; 
+      color: #808080; 
+      margin: 0;
+      font-weight: 400;
+    }
+    
+    .stat-card { 
+      background: #f9f9f9; 
+      border: 1px solid #f0f0f0;
+      border-radius: 6px; 
+      padding: 12px; 
+      margin-bottom: 12px; 
+    }
+    
+    .stat-label { 
+      font-size: 11px; 
+      color: #999; 
+      text-transform: uppercase; 
+      letter-spacing: 0.8px; 
+      margin: 0 0 6px 0;
+      font-weight: 600;
+    }
+    
+    .stat-value { 
+      font-size: 24px; 
+      font-weight: 600; 
+      color: #1a1a1a; 
+      margin: 0;
+      line-height: 1.1;
+    }
+    
+    .stat-unit { 
+      font-size: 13px; 
+      color: #999; 
+      margin-left: 4px;
+      font-weight: 400;
+    }
+    
+    .stat-secondary {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    
+    .indicators { 
+      margin-top: 1.5rem; 
+    }
+    
+    .indicator-group { 
+      margin-bottom: 14px; 
+    }
+    
+    .indicator-name { 
+      font-size: 12px; 
+      color: #666;
+      margin: 0 0 6px 0;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    
+    .indicator-bar { 
+      width: 100%; 
+      height: 8px; 
+      background: #f0f0f0; 
+      border-radius: 4px; 
+      overflow: hidden;
+      border: 1px solid #e8e8e8;
+    }
+    
+    .indicator-fill { 
+      height: 100%; 
+      background: linear-gradient(90deg, #5DCAA5, #1D9E75); 
+      border-radius: 3px;
+    }
+    
+    .indicator-value { 
+      font-size: 13px; 
+      font-weight: 600; 
+      color: #1a1a1a; 
+      margin-top: 4px;
+    }
+    
+    .controls { 
+      margin-bottom: 1.5rem; 
+      display: flex; 
+      gap: 8px; 
+    }
+    
+    button { 
+      background: #ffffff; 
+      border: 1px solid #d0d0d0; 
+      padding: 8px 14px; 
+      border-radius: 5px; 
+      font-size: 12px; 
+      cursor: pointer; 
+      color: #666; 
+      transition: all 0.2s ease;
+      font-weight: 500;
+      flex: 1;
+    }
+    
+    button:hover { 
+      background: #f5f5f5; 
+      border-color: #999;
+      color: #333;
+    }
+    
+    button.active { 
+      background: #1D9E75; 
+      color: #ffffff; 
+      border-color: #1D9E75;
+    }
+    
+    button.active:hover {
+      background: #158a67;
+      border-color: #158a67;
+    }
+    
+    .empty-state { 
+      text-align: center; 
+      color: #999; 
+      padding: 2rem 0;
+      font-size: 13px;
+    }
+    
+    .legend { 
+      margin-top: 1.5rem; 
+      padding-top: 1.5rem;
+      border-top: 1px solid #f0f0f0;
+      font-size: 12px; 
+    }
+    
+    .legend-title { 
+      font-weight: 600; 
+      margin-bottom: 10px; 
+      color: #333;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #999;
+    }
+    
+    .legend-item { 
+      display: flex; 
+      align-items: center; 
+      gap: 10px; 
+      margin-bottom: 8px; 
+      font-size: 12px; 
+      color: #666;
+    }
+    
+    .legend-color { 
+      width: 22px; 
+      height: 22px; 
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .info-box {
+      background: #f0f8f5;
+      border-left: 3px solid #1D9E75;
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #2c6e5c;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+    
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #ddd;
+      border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #bbb;
+    }
+    
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #999;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="map-section">
+      <div id="map"></div>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-header">
+        <h1 class="panel-title">Gentrificación Madrid</h1>
+        <p class="panel-subtitle">Indicadores por sección censal · 2023</p>
+      </div>
+      
+      <div class="info-box">
+        Selecciona una sección en el mapa para ver detalles de indicadores
+      </div>
+      
+      <div class="controls">
+        <button id="btn-secciones" class="active">Secciones</button>
+        <button id="btn-distritos">Distritos</button>
+      </div>
+
+      <div class="controls" id="filtros-secciones">
+        <button id="btn-all" class="active" style="font-size:11px">Todos</button>
+        <button id="btn-alto" style="font-size:11px">Alto</button>
+        <button id="btn-bajo" style="font-size:11px">Bajo</button>
+      </div>
+      
+      <div id="panel-content">
+        <div class="empty-state">Cargando datos...</div>
+      </div>
+      
+      <div class="legend">
+        <p class="legend-title">Índice I-01 (Compuesto)</p>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #E1F5EE;"></div>
+          <span>0-25 (Bajo)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #9FE1CB;"></div>
+          <span>25-50 (Medio-Bajo)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #5DCAA5;"></div>
+          <span>50-75 (Medio-Alto)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #1D9E75;"></div>
+          <span>75-88 (Alto)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #085041;"></div>
+          <span>88-100 (Muy Alto)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuración
+    const API_BASE = 'http://localhost:8000';
+    const TEAL_RAMP = ['#E1F5EE', '#9FE1CB', '#5DCAA5', '#1D9E75', '#0F6E56', '#085041'];
+    
+    let map, geoJsonLayer, distritoLayer;
+    let filterMode = 'all';
+    let vistaMode = 'secciones'; // 'secciones' | 'distritos'
+    let dataLoaded = false;
+    let allSecciones = []; // cache para la capa de distritos
+    
+    // Inicializar mapa
+    function initMap() {
+      map = L.map('map', {
+        center: [40.416, -3.703],
+        zoom: 11,
+        zoomControl: true,
+        attributionControl: true
+      });
+      
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap, © CartoDB | Cartografía: © INE',
+        maxZoom: 18,
+        minZoom: 10
+      }).addTo(map);
+      
+      map.attributionControl.setPrefix('');
+    }
+    
+    // Obtener color basado en valor de I-01
+    function getColor(value) {
+      if (value === null || value === undefined) return '#e8e8e8';
+      if (value < 25) return TEAL_RAMP[0];
+      if (value < 50) return TEAL_RAMP[1];
+      if (value < 62) return TEAL_RAMP[2];
+      if (value < 75) return TEAL_RAMP[3];
+      if (value < 88) return TEAL_RAMP[4];
+      return TEAL_RAMP[5];
+    }
+
+    // Convertir geometría GeoJSON-como-string (de Virtuoso) a objeto GeoJSON
+    // Virtuoso devuelve la geometría como string Python-style con comillas simples
+    function parseGeometria(geoStr) {
+      try {
+        // Virtuoso devuelve formato Python dict con comillas simples
+        // Convertir a JSON válido: comillas simples → dobles
+        const jsonStr = geoStr
+          .replace(/'/g, '"')
+          .replace(/True/g, 'true')
+          .replace(/False/g, 'false')
+          .replace(/None/g, 'null');
+        return JSON.parse(jsonStr);
+      } catch (e) {
+        console.warn('Error parseando geometría:', e);
+        return null;
+      }
+    }
+    
+    // Cargar datos unificados (geometría + indicadores) desde el nuevo endpoint
+    async function loadData() {
+      try {
+        document.getElementById('panel-content').innerHTML = '<div class="empty-state">Cargando datos desde Virtuoso...</div>';
+        
+        const response = await fetch(`${API_BASE}/secciones/geo/madrid?limit=2500`);
+        
+        if (!response.ok) {
+          throw new Error(`Error HTTP ${response.status}`);
+        }
+        
+        const secciones = await response.json();
+        console.log(`Secciones recibidas: ${secciones.length}`);
+        
+        // Construir FeatureCollection GeoJSON
+        const features = [];
+        for (const sec of secciones) {
+          const geom = parseGeometria(sec.geometria);
+          if (!geom) continue;
+          
+          features.push({
+            type: 'Feature',
+            properties: {
+              cusec:   sec.cusec,
+              label:   sec.label,
+              distrito: sec.distrito_label,
+              i01:     sec.i01,
+              i02:     sec.i02,
+              i03:     sec.i03,
+              i04:     sec.i04
+            },
+            geometry: geom
+          });
+        }
+        
+        const geoJson = { type: 'FeatureCollection', features };
+        console.log(`Features válidas: ${features.length}`);
+        
+        // Renderizar
+        geoJsonLayer = L.geoJSON(geoJson, {
+          style: (feature) => ({
+            fillColor:   getColor(feature.properties.i01),
+            weight:      0.8,
+            opacity:     1,
+            color:       '#bbb',
+            fillOpacity: 0.8
+          }),
+          onEachFeature: (feature, layer) => {
+            layer.on('click', () => showSectionDetails(feature.properties));
+            layer.on('mouseover', function() {
+              this.setStyle({ weight: 2, color: '#1D9E75', fillOpacity: 0.95 });
+            });
+            layer.on('mouseout', function() {
+              this.setStyle({ weight: 0.8, color: '#bbb', fillOpacity: 0.8 });
+            });
+          }
+        }).addTo(map);
+        
+        // Ajustar zoom
+        const bounds = geoJsonLayer.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+        
+        // Cachear para la capa de distritos
+        allSecciones = secciones;
+
+        dataLoaded = true;
+        document.getElementById('panel-content').innerHTML = '<div class="empty-state">Selecciona una sección en el mapa</div>';
+        
+      } catch (error) {
+        console.error('Error cargando geometrías:', error);
+        document.getElementById('panel-content').innerHTML = `
+          <div class="empty-state">
+            Error al cargar geometrías:<br>
+            ${error.message}<br><br>
+            Intenta recargar la página
+          </div>
+        `;
+      }
+    }
+    
+    // Mostrar detalles de sección en el panel
+    function showSectionDetails(props) {
+      const fmt    = v => (v !== null && v !== undefined) ? parseFloat(v).toFixed(2) : 'N/D';
+      const fmtBar = v => (v !== null && v !== undefined) ? Math.min(Math.abs(parseFloat(v)), 100) : 0;
+
+      const html = `
+        <div class="stat-card">
+          <p class="stat-label">Sección censal</p>
+          <p style="margin: 0; font-size: 15px; font-weight: 600;">${props.cusec}</p>
+          <p class="stat-secondary">${props.distrito}</p>
+        </div>
+        
+        <div class="indicators">
+          <div class="indicator-group">
+            <p class="indicator-name">I-01 • Índice compuesto</p>
+            <div class="indicator-bar"><div class="indicator-fill" style="width: ${fmtBar(props.i01)}%"></div></div>
+            <p class="indicator-value">${fmt(props.i01)} <span class="stat-unit">/ 100</span></p>
+          </div>
+          
+          <div class="indicator-group">
+            <p class="indicator-name">I-02 • Variación renta</p>
+            <div class="indicator-bar"><div class="indicator-fill" style="width: ${fmtBar(props.i02)}%"></div></div>
+            <p class="indicator-value">${fmt(props.i02)} <span class="stat-unit">%</span></p>
+          </div>
+          
+          <div class="indicator-group">
+            <p class="indicator-name">I-03 • Variación Gini</p>
+            <div class="indicator-bar"><div class="indicator-fill" style="width: ${fmtBar(props.i03)}%"></div></div>
+            <p class="indicator-value">${fmt(props.i03)} <span class="stat-unit">%</span></p>
+          </div>
+          
+          <div class="indicator-group">
+            <p class="indicator-name">I-04 • Viviendas turísticas</p>
+            <div class="indicator-bar"><div class="indicator-fill" style="width: ${fmtBar(props.i04)}%"></div></div>
+            <p class="indicator-value">${fmt(props.i04)} <span class="stat-unit">%</span></p>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('panel-content').innerHTML = html;
+    }
+    
+    // Construir capa de distritos agregados
+    function buildDistritoLayer() {
+      if (!allSecciones.length) return;
+      if (distritoLayer) { map.removeLayer(distritoLayer); distritoLayer = null; }
+
+      // Agrupar secciones por distrito: indicadores y geometrías
+      const distritos = {};
+      for (const sec of allSecciones) {
+        const d = sec.distrito_label || 'Desconocido';
+        if (!distritos[d]) distritos[d] = { label: d, i01: [], i02: [], i03: [], i04: [] };
+        if (sec.i01 !== null) distritos[d].i01.push(sec.i01);
+        if (sec.i02 !== null) distritos[d].i02.push(sec.i02);
+        if (sec.i03 !== null) distritos[d].i03.push(sec.i03);
+        if (sec.i04 !== null) distritos[d].i04.push(sec.i04);
+      }
+
+      // Recoger todas las geometrías por distrito desde geoJsonLayer
+      const distGeoms = {};
+      geoJsonLayer.eachLayer(layer => {
+        const d = layer.feature.properties.distrito;
+        if (!distGeoms[d]) distGeoms[d] = [];
+        // Cada sección puede ser MultiPolygon → extraer sus polígonos
+        const geom = layer.feature.geometry;
+        if (geom.type === 'Polygon') {
+          distGeoms[d].push(geom.coordinates);
+        } else if (geom.type === 'MultiPolygon') {
+          geom.coordinates.forEach(poly => distGeoms[d].push(poly));
+        }
+      });
+
+      const avg = arr => arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : null;
+      const fmt2 = v => v !== null ? v.toFixed(2) : 'N/D';
+      const fmtBar = v => v !== null ? Math.min(Math.abs(v), 100) : 0;
+
+      const features = [];
+      for (const [d, info] of Object.entries(distritos)) {
+        if (!distGeoms[d] || !distGeoms[d].length) continue;
+        features.push({
+          type: 'Feature',
+          properties: {
+            distrito:      d,
+            num_secciones: info.i01.length,
+            media_i01:     avg(info.i01),
+            media_i02:     avg(info.i02),
+            media_i03:     avg(info.i03),
+            media_i04:     avg(info.i04)
+          },
+          // Unir todos los polígonos del distrito en un MultiPolygon real
+          geometry: { type: 'MultiPolygon', coordinates: distGeoms[d] }
+        });
+      }
+
+      distritoLayer = L.geoJSON({ type: 'FeatureCollection', features }, {
+        style: f => ({
+          fillColor:   getColor(f.properties.media_i01),
+          weight:      1.5,
+          opacity:     1,
+          color:       '#555',
+          fillOpacity: 0.85
+        }),
+        onEachFeature: (feature, layer) => {
+          const p = feature.properties;
+          layer.bindTooltip(
+            `<strong>${p.distrito}</strong><br>I-01: ${fmt2(p.media_i01)}`,
+            { sticky: true }
+          );
+          layer.on('click', () => {
+            document.getElementById('panel-content').innerHTML = `
+              <div class="stat-card">
+                <p class="stat-label">Distrito</p>
+                <p style="margin:0;font-size:15px;font-weight:600">${p.distrito}</p>
+                <p class="stat-secondary">${p.num_secciones} secciones</p>
+              </div>
+              <div class="indicators">
+                <div class="indicator-group">
+                  <p class="indicator-name">I-01 medio · Índice compuesto</p>
+                  <div class="indicator-bar"><div class="indicator-fill" style="width:${fmtBar(p.media_i01)}%"></div></div>
+                  <p class="indicator-value">${fmt2(p.media_i01)} <span class="stat-unit">/ 100</span></p>
+                </div>
+                <div class="indicator-group">
+                  <p class="indicator-name">I-02 medio · Variación renta</p>
+                  <div class="indicator-bar"><div class="indicator-fill" style="width:${fmtBar(p.media_i02)}%"></div></div>
+                  <p class="indicator-value">${fmt2(p.media_i02)} <span class="stat-unit">%</span></p>
+                </div>
+                <div class="indicator-group">
+                  <p class="indicator-name">I-03 medio · Variación Gini</p>
+                  <div class="indicator-bar"><div class="indicator-fill" style="width:${fmtBar(p.media_i03)}%"></div></div>
+                  <p class="indicator-value">${fmt2(p.media_i03)} <span class="stat-unit">%</span></p>
+                </div>
+                <div class="indicator-group">
+                  <p class="indicator-name">I-04 medio · Viviendas turísticas</p>
+                  <div class="indicator-bar"><div class="indicator-fill" style="width:${fmtBar(p.media_i04)}%"></div></div>
+                  <p class="indicator-value">${fmt2(p.media_i04)} <span class="stat-unit">%</span></p>
+                </div>
+              </div>`;
+          });
+          layer.on('mouseover', function() { this.setStyle({ weight: 3, color: '#1D9E75' }); });
+          layer.on('mouseout',  function() { this.setStyle({ weight: 1.5, color: '#555' }); });
+        }
+      });
+    }
+
+    // Alternar entre vista de secciones y vista de distritos
+    function switchVista(modo) {
+      vistaMode = modo;
+      document.getElementById('btn-secciones').classList.toggle('active', modo === 'secciones');
+      document.getElementById('btn-distritos').classList.toggle('active', modo === 'distritos');
+      // Mostrar filtros solo en vista de secciones
+      document.getElementById('filtros-secciones').style.display = modo === 'secciones' ? 'flex' : 'none';
+
+      if (modo === 'distritos') {
+        if (!distritoLayer) buildDistritoLayer();
+        if (geoJsonLayer) map.removeLayer(geoJsonLayer);
+        if (distritoLayer) map.addLayer(distritoLayer);
+        document.getElementById('panel-content').innerHTML = '<div class="empty-state">Selecciona un distrito en el mapa</div>';
+      } else {
+        if (distritoLayer) map.removeLayer(distritoLayer);
+        if (geoJsonLayer) map.addLayer(geoJsonLayer);
+        updateMap();
+        document.getElementById('panel-content').innerHTML = '<div class="empty-state">Selecciona una sección en el mapa</div>';
+      }
+    }
+
+    // Event listeners — ver bloque DOMContentLoaded al final
+    
+    // Actualizar estilos de botones
+    function updateButtons() {
+      document.querySelectorAll('.controls button').forEach(btn => btn.classList.remove('active'));
+      if (filterMode === 'all') document.getElementById('btn-all').classList.add('active');
+      else if (filterMode === 'alto') document.getElementById('btn-alto').classList.add('active');
+      else if (filterMode === 'bajo') document.getElementById('btn-bajo').classList.add('active');
+    }
+    
+    // Actualizar opacidad de elementos en el mapa según filtro
+    function updateMap() {
+      if (!dataLoaded || !geoJsonLayer) return;
+      
+      geoJsonLayer.eachLayer(layer => {
+        const i01 = layer.feature?.properties?.i01;
+        
+        const show = filterMode === 'all' || 
+                     (filterMode === 'alto' && i01 !== null && i01 >= 50) || 
+                     (filterMode === 'bajo' && i01 !== null && i01 < 50);
+        
+        layer.setStyle({ 
+          opacity:     show ? 1   : 0.1,
+          fillOpacity: show ? 0.8 : 0.05
+        });
+      });
+    }
+    
+    // Inicializar — todos los event listeners dentro de DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function() {
+      initMap();
+      loadData();
+
+      // Filtros
+      document.getElementById('btn-all').addEventListener('click', () => { filterMode = 'all'; updateMap(); document.getElementById('btn-all').classList.add('active'); document.getElementById('btn-alto').classList.remove('active'); document.getElementById('btn-bajo').classList.remove('active'); });
+      document.getElementById('btn-alto').addEventListener('click', () => { filterMode = 'alto'; updateMap(); document.getElementById('btn-alto').classList.add('active'); document.getElementById('btn-all').classList.remove('active'); document.getElementById('btn-bajo').classList.remove('active'); });
+      document.getElementById('btn-bajo').addEventListener('click', () => { filterMode = 'bajo'; updateMap(); document.getElementById('btn-bajo').classList.add('active'); document.getElementById('btn-all').classList.remove('active'); document.getElementById('btn-alto').classList.remove('active'); });
+
+      // Vista secciones / distritos
+      document.getElementById('btn-secciones').addEventListener('click', () => switchVista('secciones'));
+      document.getElementById('btn-distritos').addEventListener('click', () => switchVista('distritos'));
+    });
+  </script>
+</body>
+</html>
